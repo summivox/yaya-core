@@ -1,0 +1,7 @@
+{
+  "name": "yaya-core",
+  "version": "0.0.1",
+  "devDependencies": {
+    "iced-coffee-script": "~1.8.0"
+  }
+}
