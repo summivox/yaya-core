@@ -8,14 +8,15 @@
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/resolve/test/resolver/cup.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/cup.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/code.js" />
-        <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/mug.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/keyword.js" />
+        <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/mug.js" />
         <item url="file://$PROJECT_DIR$/node_modules/coffeeify/example/baz.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/test/coffee_bin/main.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/test/coffee_bin/x.js" />
         <item url="file://$PROJECT_DIR$/src/history.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/test/coffeeify/main.js" />
         <item url="file://$PROJECT_DIR$/src/world.js" />
+        <item url="file://$PROJECT_DIR$/test/history.test.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/http-browserify/node_modules/Base64/test/base64.js" />
       </sourceFilesUrls>
     </properties>
@@ -26,14 +27,15 @@
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/resolve/test/resolver/cup.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/cup.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/code.js" />
-      <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/keyword.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/mug.js" />
+      <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/keyword.js" />
       <root url="file://$PROJECT_DIR$/node_modules/coffeeify/example/baz.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/test/coffee_bin/main.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/test/coffee_bin/x.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/test/coffeeify/main.js" />
       <root url="file://$PROJECT_DIR$/src/history.js" />
       <root url="file://$PROJECT_DIR$/src/world.js" />
+      <root url="file://$PROJECT_DIR$/test/history.test.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/http-browserify/node_modules/Base64/test/base64.js" />
     </CLASSES>
     <SOURCES />
