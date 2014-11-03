@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="everything except test" pattern="file[yaya-core]:*/&amp;&amp;!file[yaya-core]:test//*" />
+</component>

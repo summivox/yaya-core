@@ -12,10 +12,16 @@ module.exports = class History
       throw Error 'History: ctor: `k` should be non-negative integer'
     @transform ||= (o) -> o
 
-    @n = n = 1<<k
-    @_mask = n - 1
-    @_h = new Array n # history (transformed and deep-copied)
+    @n = 1<<k
+    @_mask = @n - 1
+    @clear()
+
+    @ # done
+
+  clear: ->
+    @_h = new Array @n # history (transformed and deep-copied)
     @_i = @_mask # index of the latest snapshot
+    return
 
   # take a snapshot of the underlying object
   snapshot: ->

@@ -35,6 +35,7 @@ module.exports =
     test.ok !o.t?
     for i in [0..-3]
       p = h.past(i)
+      test.ok p && p.t? && p.v?
       test.strictEqual p.t, true
       test.equal p.v[0], 8+i
 
