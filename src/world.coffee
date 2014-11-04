@@ -5,6 +5,7 @@ N = require 'numeric'
 
 History = require './history'
 IterMap = require './iter-map'
+SE2 = require './se2'
 Force = require './force'
 Body = require './body'
 ForceFuncMgr = require './force-func-mgr'
@@ -12,21 +13,22 @@ ForceFuncMgr = require './force-func-mgr'
 defaultOptions =
   k: 3 # size of history = 2^k
   timestep:
-    min: 1e-8
-    max: 1e-4
+    min: 1e-6
+    max: 1e-2
 
 module.exports = class World
-  constructor: (@options) ->
-    _.merge options, defaultOptions
-    @_o = options
+  constructor: (options = {}) ->
+    @options = _.clone defaultOptions
+    _.merge @options, options
 
-    # simulation time:
+    # simulation time struct:
     #   t: timestamp of current state
-    #   discontinuity: "truthy" if a discontinuity happened during previous timestep
-    #   lastStep: timestep taken from last state to current
+    #   lastStep: time spent from last state to current
+    #   modified: if objects in the world has changed after this iteration
+    #   tag: for solver to store arbitrary state
     # history is kept in sync with all bodies
-    @tNow = {t: 0, discontinuity: true, lastStep: 0}
-    @tHistory = new History @tNow, options.k
+    @tNow = {t: 0, lastStep: 0, modified: true, tag: null}
+    @tHistory = new History @tNow, @options.k
     @tHistory.snapshot()
 
     # set of bodies
@@ -38,8 +40,11 @@ module.exports = class World
     # force function manager
     @forceFuncs = new ForceFuncMgr
 
-    # solver0: bootstrapping solver used after discontinuity
-    @solver = @solver0 = -> throw Error 'World: set a solver before stepping'
+    # list of fields `(t, body, id) -> Force`
+    @fields = []
+
+    # dummy solver
+    @solver = -> throw Error 'World: set acc solver before stepping'
 
     @ # done
 
@@ -48,7 +53,7 @@ module.exports = class World
     if @bodies.has id then return null
     body.init @options.k
     @bodies.set id, body
-    @tNow.discontinuity = true
+    @tNow.modified = true
     return body
 
   findBody: (id) -> @bodies.get id
@@ -60,9 +65,12 @@ module.exports = class World
     @bodies.delete id
     for ffEntry in body.forceFuncs
       @forceFuncs.remove ffEntry, body
+    @tnow.modified = true
     body
 
-  _clampTime = (dt) ->
+  #TODO: {add, remove}{Force, Field}
+
+  _clampTime: (dt) ->
     M.min(M.max(dt,
       @options.timestep.min), @options.timestep.max)
 
@@ -70,17 +78,17 @@ module.exports = class World
   # dt: suggested timestep to take
   # return: actually performed timestep
   step: (dt) ->
-    dt = @_clampTime dt
-    dt = if @tNow.discontinuity then @solver0 dt else @solver dt
+    dt = @solver @_clampTime dt
 
     #TODO: post-solver correction, discontinuity fix, etc.
     # for now just switch discontinuity off after stepping
-    tNow.discontinuity = false
+    @tNow.discontinuity = false
 
-    tNow.t += dt
-    tNow.lastStep = dt
-    tHistory.snapshot()
-    bodies.forEach (body) ->
+    # save current state
+    @tNow.t += dt
+    @tNow.lastStep = dt
+    @tHistory.snapshot()
+    @bodies.forEach (body) ->
       body.frameHistory.snapshot()
 
     dt
@@ -88,12 +96,21 @@ module.exports = class World
   # called by solvers: calculate acceleration of all bodies according
   # to their "temporary next step" pos & vel
   _getAcc: (dt) ->
-    t = tNow.t + dt
-    @bodies.forEach (body) -> body.frame.a = {x: 0, y: 0, th: 0}
+
+    # Force on Body => body Acc
+    fb2a = (force, body) -> force.inFrame(body.frame.pos).toAcc(body)
+
+    t = @tNow.t + dt
+    @bodies.forEach (body, id) =>
+      acc = body.frame.acc = SE2(0, 0, 0)
+      for field in @fields
+        force = field(t, body, id)
+        acc.addEq fb2a(force, body)
     @forceFuncs.forEach (ffEntry) ->
-      {bodyP, bodyN, f} = ffEntry
-      {x, y, th} = forceP = f t
-      forceN = {x: -x, y: -y, th: -th}
-      #TODO: implement "+="
-      bodyP.frame.a += forceP.toAcceleration bodyP
-      bodyN.frame.a += forceN.toAcceleration bodyN
+      {bodyP, bodyN} = ffEntry
+      forceP = ffEntry.f(t) # need to preserve context
+      if bodyP != @ground
+        bodyP.frame.acc.addEq fb2a(forceP, bodyP)
+      if bodyN != @ground
+        forceN = new Force forceP.neg()
+        bodyN.frame.acc.addEq fb2a(forceN, bodyN)

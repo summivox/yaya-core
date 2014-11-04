@@ -1,8 +1,12 @@
 <component name="ProjectDictionaryState">
   <dictionary name="Yin">
     <words>
+      <w>beeman</w>
       <w>lodash</w>
+      <w>struct</w>
+      <w>timestep</w>
       <w>timesteps</w>
+      <w>verlet</w>
     </words>
   </dictionary>
 </component>

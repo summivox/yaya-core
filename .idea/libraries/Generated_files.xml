@@ -45,6 +45,7 @@
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/umd/node_modules/rfile/node_modules/resolve/test/resolver/mug.js" />
         <item url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-generate/test/random.js" />
         <item url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-stringify/test/api.js" />
+        <item url="file://$PROJECT_DIR$/src/solver.js" />
         <item url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-stringify/test/api.write.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/keyword.js" />
         <item url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/code.js" />
@@ -64,6 +65,10 @@
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/src/body-manager.js" />
+      <root url="file://$PROJECT_DIR$/test/history.test.js" />
+      <root url="file://$PROJECT_DIR$/test/se2.test.js" />
+      <root url="file://$PROJECT_DIR$/test/force.test.js" />
+      <root url="file://$PROJECT_DIR$/test/iter-map.test.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/stream-transform/test/parallel.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-parse/test/relax.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/stream-transform/test/async.js" />
@@ -108,6 +113,7 @@
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-generate/test/random.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-stringify/test/api.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-stringify/test/api.write.js" />
+      <root url="file://$PROJECT_DIR$/src/solver.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/keyword.js" />
       <root url="file://$PROJECT_DIR$/node_modules/browserify/node_modules/module-deps/node_modules/detective/node_modules/escodegen/node_modules/esutils/test/code.js" />
       <root url="file://$PROJECT_DIR$/node_modules/csv/node_modules/csv-stringify/test/escape.js" />

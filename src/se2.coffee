@@ -1,4 +1,5 @@
-{sin, cos} = M = Math
+{sin, cos, abs} = M = Math
+N = require 'numeric'
 
 # SE(2) can be seen as:
 #   wrench/twist => addition
@@ -22,7 +23,7 @@ module.exports = class SE2
   ############
   # addition
 
-  add: ({x, y, th}) ->
+  plus: ({x, y, th}) ->
     new SE2 @x+x, @y+y, @th+th
   minus: ({x, y, th}) ->
     new SE2 @x-x, @y-y, @th-th
@@ -69,8 +70,10 @@ module.exports = class SE2
   ############
   # comparison
 
-  #TODO: robust comparison
 #  equal: ({x, y, th}) -> @x == x && @y == y && @th == th
+  equal: (r, eps = 1e-12) ->
+    {x, y, th} = @minus r
+    N.norm2([x, y]) <= eps && abs(th) <= eps
 
   ############
   # addition/assign
@@ -89,12 +92,12 @@ module.exports = class SE2
   ############
   # function-style operators
 
-  @add = (l, r) -> l.add r
+  @plus = (l, rs...) -> l = l.plus r for r in rs ; l
   @minus = (l, r) -> l.minus r
   @scale = (l, r) -> if l.x? then l.scale r else r.scale l
   @neg = (s) -> s.neg()
   @inv = (s) -> s.inv()
   @mulVec = (s, v) -> s.mulVec v
   @mulPoint = (s, p) -> s.mulPoint p
-  @mulSE2 = (l, r) -> l.mulSE2 r
-  @equal = (l, r) -> l.equal r
+  @mulSE2 = (l, rs...) -> l = l.mulSE2 r for r in rs ; l
+  @equal = (l, r, eps) -> l.equal r, eps

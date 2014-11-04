@@ -6,7 +6,17 @@ SE2 = require './se2'
 # 2D Force, natively represented as Plucker coordinates (force + moment at origin)
 module.exports = class Force extends SE2
 
-  constructor: -> super arguments...
+  constructor: ->
+    if this not instanceof Force then return new Force arguments...
+    super arguments...
+
+  # represent force relative to another frame
+  #   frame: SE(2) coordinate of frame
+  inFrame: (frame) ->
+    a = @th/(@x*@x+@y*@y)
+    th = (@y*a - frame.x)*@y + (@x*a + frame.y)*@x
+    [x, y] = frame.ldivVec([@x, @y])
+    new Force x, y, th
 
   ############
   # inbound conversions
@@ -23,4 +33,4 @@ module.exports = class Force extends SE2
   # outbound conversions
 
   # convert to acceleration of a rigid body
-  toAcceleration: ({m, jz}) -> new SE2 @x/m, @y/m, @th/jz
+  toAcc: ({m, jz}) -> new SE2 @x/m, @y/m, @th/jz
