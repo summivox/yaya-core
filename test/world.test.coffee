@@ -18,6 +18,11 @@ spring = (k, d0) -> (t) ->
 uniformGravity = (g) -> (t, body, id) ->
   Force.fromForcePoint {x: 0, y: -g*body.m}, body.frame.pos
 
+invSqrGravity = (G=6.67384e-11) -> (t) ->
+  v = @bodyN.frame.pos.minus @bodyP.frame.pos
+  d2 = N.norm2Squared([v.x, v.y])
+  Force.fromForcePoint v.scale(G*@bodyN.m*@bodyP.m/d2), @bodyP.frame.pos
+
 
 twoBodySpringWorld = (k = 1, d0 = 1) ->
   w = new World
@@ -32,6 +37,13 @@ uniformGravityWorld = ->
   b2 = w.addBody 'b2', new Body(5, 1, pos: SE2(-10, 5, -45*deg))
   w.fields.push uniformGravity(10)
   w
+
+earthMoonWorld = (mEarth=5.97219e24, mMoon=7.34767309e22, d0=384400, v0=1.023e3) ->
+  w = new World
+  earth = w.addBody 'earth', new Body(mEarth, 1)
+  moon = w.addBody 'moon', new Body(mMoon, 1, pos: SE2(d0, 0, 0), vel: SE2(0, v0, 0))
+  w.forceFuncs.add earth, moon, invSqrGravity()
+
 
 module.exports =
   getAcc:
@@ -64,6 +76,7 @@ module.exports =
       test.done()
   outputOnly:
     verletFixed:
+
       twoBodySpring: (test) ->
         w = twoBodySpringWorld(1, 1)
         w.solver = Solver.verletFixed
@@ -79,6 +92,27 @@ module.exports =
         for step in [1..tTotal/dt] by 1
           w.step dt
           csvOut.write [dt*step].concat(b1.frame.pos.toVec()).concat(b2.frame.pos.toVec())
+        csvOut.end()
+
+        test.ok abs(w.tNow.t - tTotal) <= 1e-12
+
+        test.done()
+
+      earthMoon: (test) ->
+        w = earthMoonWorld()
+        w.solver = Solver.verletFixed
+        earth = w.findBody 'earth'
+        moon = w.findBody 'moon'
+
+        fOut = fs.createWriteStream './verletFixed.earthMoon.csv'
+        csvOut = csv.stringify()
+        csvOut.pipe fOut
+  
+        dt = 1e3
+        tTotal = 86400*60
+        for step in [1..tTotal/dt] by 1
+          w.step dt
+          csvOut.write [dt*step].concat(earth.frame.pos.toVec()).concat(moon.frame.pos.toVec())
         csvOut.end()
 
         test.ok abs(w.tNow.t - tTotal) <= 1e-12
