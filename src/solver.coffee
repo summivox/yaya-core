@@ -12,8 +12,6 @@ module.exports =
   #   in which case the vel->acc integration becomes Euler. One ad-hoc iteration step
   #   is added as an attempt to save some accuracy.
   verletFixed: (dt) ->
-    assert.equal dt, 1e-3
-
     hdt = dt/2
     hdt2 = dt*dt/2
     @bodies.forEach (body) =>

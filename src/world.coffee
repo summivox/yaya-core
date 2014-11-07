@@ -14,7 +14,7 @@ defaultOptions =
   k: 3 # size of history = 2^k
   timestep:
     min: 1e-6
-    max: 1e-2
+    max: Infinity
 
 module.exports = class World
   constructor: (options = {}) ->

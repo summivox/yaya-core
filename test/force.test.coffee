@@ -45,6 +45,6 @@ module.exports =
 #      {x, y, th} = l.minus r # relying on addition test to pass
 #      N.norm2([x, y]) < eps && abs(th) < eps
 
-    test.ok SE2(sqrt2, sqrt2, 4).equal(f2, 1e-12)
+    test.ok SE2(0, 2, 4).equal(f2, 1e-12)
 
     test.done()

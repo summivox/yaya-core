@@ -10,13 +10,14 @@ module.exports = class Force extends SE2
     if this not instanceof Force then return new Force arguments...
     super arguments...
 
-  # represent force relative to another frame
+  # represent moment component relative to another frame
   #   frame: SE(2) coordinate of frame
   inFrame: (frame) ->
     a = @th/(@x*@x+@y*@y)
     th = (@y*a - frame.x)*@y + (@x*a + frame.y)*@x
-    [x, y] = frame.ldivVec([@x, @y])
-    new Force x, y, th
+    # 20141104: DAMN THIS MISTAKE! We're still calculating in global frame so no rotation
+    #[x, y] = frame.ldivVec([@x, @y])
+    new Force @x, @y, th
 
   ############
   # inbound conversions

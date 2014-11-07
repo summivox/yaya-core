@@ -3,6 +3,8 @@ N = require 'numeric'
 csv = require 'csv'
 fs = require 'fs'
 
+assert = require 'assert'
+
 deg = PI/180
 sqrt2 = sqrt 2
 sqrt5 = sqrt 5
@@ -18,10 +20,12 @@ spring = (k, d0) -> (t) ->
 uniformGravity = (g) -> (t, body, id) ->
   Force.fromForcePoint {x: 0, y: -g*body.m}, body.frame.pos
 
+flag=10
 invSqrGravity = (G=6.67384e-11) -> (t) ->
-  v = @bodyN.frame.pos.minus @bodyP.frame.pos
-  d2 = N.norm2Squared([v.x, v.y])
-  Force.fromForcePoint v.scale(G*@bodyN.m*@bodyP.m/d2), @bodyP.frame.pos
+  {x, y} = v = @bodyN.frame.pos.minus @bodyP.frame.pos
+  d2 = N.norm2Squared([x, y])
+  d = sqrt d2
+  Force.fromForcePoint v.scale(G*@bodyN.m*@bodyP.m/d2/d), @bodyP.frame.pos
 
 
 twoBodySpringWorld = (k = 1, d0 = 1) ->
@@ -38,11 +42,12 @@ uniformGravityWorld = ->
   w.fields.push uniformGravity(10)
   w
 
-earthMoonWorld = (mEarth=5.97219e24, mMoon=7.34767309e22, d0=384400, v0=1.023e3) ->
+earthMoonWorld = (mEarth=5.97219e24, mMoon=7.34767309e22, d0=362600e3, v0=1.023e3) ->
   w = new World
-  earth = w.addBody 'earth', new Body(mEarth, 1)
-  moon = w.addBody 'moon', new Body(mMoon, 1, pos: SE2(d0, 0, 0), vel: SE2(0, v0, 0))
+  earth = w.addBody 'earth', new Body(mEarth, mEarth)
+  moon = w.addBody 'moon', new Body(mMoon, mMoon, pos: SE2(d0, 0, 0), vel: SE2(0, v0, 0))
   w.forceFuncs.add earth, moon, invSqrGravity()
+  w
 
 
 module.exports =
@@ -58,8 +63,8 @@ module.exports =
       test.ok SE2(x, x*2, 0).equal(b1.frame.acc), 'body #1'
       test.ok SE2(-x/2, -x, 0).equal(b2.frame.acc), 'body #2'
 
-      console.log b1.frame.acc
-      console.log b2.frame.acc
+#      console.log b1.frame.acc
+#      console.log b2.frame.acc
 
       test.done()
 
@@ -70,8 +75,8 @@ module.exports =
 
       w._getAcc()
 
-      test.ok SE2(-10/sqrt2, -10/sqrt2, 0).equal(b1.frame.acc, 1e-12), 'body #1'
-      test.ok SE2(10/sqrt2, -10/sqrt2, 0).equal(b2.frame.acc, 1e-12), 'body #2'
+      test.ok SE2(0, -10, 0).equal(b1.frame.acc, 1e-12), 'body #1'
+      test.ok SE2(0, -10, 0).equal(b2.frame.acc, 1e-12), 'body #2'
 
       test.done()
   outputOnly:
@@ -82,6 +87,7 @@ module.exports =
         w.solver = Solver.verletFixed
         b1 = w.findBody('b1')
         b2 = w.findBody('b2')
+        w._getAcc 0
 
         fOut = fs.createWriteStream './verletFixed.twoBodySpring.csv'
         csvOut = csv.stringify()
@@ -103,13 +109,14 @@ module.exports =
         w.solver = Solver.verletFixed
         earth = w.findBody 'earth'
         moon = w.findBody 'moon'
+        # w._getAcc 0
 
         fOut = fs.createWriteStream './verletFixed.earthMoon.csv'
         csvOut = csv.stringify()
         csvOut.pipe fOut
   
-        dt = 1e3
-        tTotal = 86400*60
+        dt = 100
+        tTotal = 86400*28
         for step in [1..tTotal/dt] by 1
           w.step dt
           csvOut.write [dt*step].concat(earth.frame.pos.toVec()).concat(moon.frame.pos.toVec())
