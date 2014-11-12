@@ -11,21 +11,23 @@ sqrt5 = sqrt 5
 
 {World, Force, Body, SE2, Solver} = require '../index'
 
+
 spring = (k, d0) -> (t) ->
   v = @bodyN.frame.pos.minus @bodyP.frame.pos
+  v.th = 0
   d = N.norm2([v.x, v.y])
   d = M.max d, 1e3*N.epsilon # overlapping bodies have no direction
-  Force.fromForcePoint v.scale(k*(1-d0/d)), @bodyP.frame.pos
+  new Force v.scale(k*(1-d0/d))
 
 uniformGravity = (g) -> (t, body, id) ->
-  Force.fromForcePoint {x: 0, y: -g*body.m}, body.frame.pos
+  new Force 0, -g*body.m, 0
 
-flag=10
 invSqrGravity = (G=6.67384e-11) -> (t) ->
   {x, y} = v = @bodyN.frame.pos.minus @bodyP.frame.pos
+  v.th = 0
   d2 = N.norm2Squared([x, y])
   d = sqrt d2
-  Force.fromForcePoint v.scale(G*@bodyN.m*@bodyP.m/d2/d), @bodyP.frame.pos
+  new Force v.scale(G*@bodyN.m*@bodyP.m/d2/d)
 
 
 twoBodySpringWorld = (k = 1, d0 = 1) ->

@@ -6,17 +6,15 @@ SE2 = require './se2'
 # 2D Force, natively represented as Plucker coordinates (force + moment at origin)
 module.exports = class Force extends SE2
 
-  constructor: ->
-    if this not instanceof Force then return new Force arguments...
-    super arguments...
+  constructor: (fx, fy, mz) ->
+    if this not instanceof Force then return new Force fx, fy, mz
+    super fx, fy, mz
 
-  # represent moment component relative to another frame
-  #   frame: SE(2) coordinate of frame
-  inFrame: (frame) ->
+  # represent the same force at given origin (moment component changed)
+  offsetOrigin: (v) ->
+    if v.x then {x, y} = v else [x, y] = v
     a = @th/(@x*@x+@y*@y)
-    th = (@y*a - frame.x)*@y + (@x*a + frame.y)*@x
-    # 20141104: DAMN THIS MISTAKE! We're still calculating in global frame so no rotation
-    #[x, y] = frame.ldivVec([@x, @y])
+    th = (@y*a - x)*@y + (@x*a + y)*@x
     new Force @x, @y, th
 
   ############

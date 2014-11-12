@@ -41,6 +41,8 @@ module.exports = class World
     @forceFuncs = new ForceFuncMgr
 
     # list of fields `(t, body, id) -> Force`
+    # returned force is directly acting on the body
+    #TODO: better define this
     @fields = []
 
     # dummy solver
@@ -81,12 +83,11 @@ module.exports = class World
     dt = @solver @_clampTime dt
 
     #TODO: post-solver correction, discontinuity fix, etc.
-    # for now just switch discontinuity off after stepping
-    @tNow.discontinuity = false
 
     # save current state
     @tNow.t += dt
     @tNow.lastStep = dt
+    @tNow.modified = false
     @tHistory.snapshot()
     @bodies.forEach (body) ->
       body.frameHistory.snapshot()
@@ -97,20 +98,20 @@ module.exports = class World
   # to their "temporary next step" pos & vel
   _getAcc: (dt) ->
 
-    # Force on Body => body Acc
-    fb2a = (force, body) -> force.inFrame(body.frame.pos).toAcc(body)
-
     t = @tNow.t + dt
     @bodies.forEach (body, id) =>
       acc = body.frame.acc = SE2(0, 0, 0)
       for field in @fields
         force = field(t, body, id)
-        acc.addEq fb2a(force, body)
+        acc.addEq force.toAcc body
     @forceFuncs.forEach (ffEntry) ->
       {bodyP, bodyN} = ffEntry
       forceP = ffEntry.f(t) # need to preserve context
-      if bodyP != @ground
-        bodyP.frame.acc.addEq fb2a(forceP, bodyP)
-      if bodyN != @ground
-        forceN = new Force forceP.neg()
-        bodyN.frame.acc.addEq fb2a(forceN, bodyN)
+      if bodyP && bodyP != @ground
+        # forceP: moment component already at bodyP
+        bodyP.frame.acc.addEq forceP.toAcc(bodyP)
+      if bodyN && bodyN != @ground
+        # forceN: -forceP with moment component offset to bodyN
+        vPN = bodyN.frame.pos.minus bodyP.frame.pos
+        forceN = new Force(forceP.neg()).offsetOrigin(vPN)
+        bodyN.frame.acc.addEq forceN.toAcc(bodyN)

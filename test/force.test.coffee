@@ -35,10 +35,10 @@ module.exports =
 
     test.done()
 
-  inFrame: (test) ->
+  offsetOrigin: (test) ->
     f1 = Force.fromForcePoint {x: 0, y: 2}, {x: 3, y: 0}
     frame1 = SE2(1, 2, 45*deg)
-    f2 = f1.inFrame frame1
+    f2 = f1.offsetOrigin frame1
 
     # account for round-off errors
 #    SE2_equal = (eps) -> (l, r) ->

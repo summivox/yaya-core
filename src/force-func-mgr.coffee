@@ -7,9 +7,9 @@ module.exports = class ForceFuncMgr
     @_a = []
 
   # f: (t) -> {x, y, th}
-  #   @bodyP: force acting on this body is the same as returned ("positive")
-  #   @bodyN: force acting on this body is negative of returned ("negative")
   #   t: simulation time
+  #   returned force acts on and has moment component relative to @bodyP ("positive")
+  #   its reaction force is exerted (by World) onto @bodyN ("negative")
   add: (bodyP, bodyN, f) ->
     ffEntry = {_idx: @_a.length, bodyP, bodyN, f}
     @_a.push ffEntry
