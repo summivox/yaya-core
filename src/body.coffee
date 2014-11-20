@@ -13,6 +13,7 @@ module.exports = class Body
   #   v: velocity
   #   a: acceleration
   # forceFuncs: ref entries of ForceFuncs associated with this body
+  # boundary: simple closed curve acting as 
   constructor: (@m, @jz, frame = {}) ->
     @forceFuncs = []
     @frame =
@@ -20,6 +21,7 @@ module.exports = class Body
       vel: SE2(0, 0, 0)
       acc: SE2(0, 0, 0)
     _.merge @frame, frame
+    @boundary = null
 
   # reason for independent init: propagate options from World
   init: (k) ->

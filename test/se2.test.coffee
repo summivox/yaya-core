@@ -25,6 +25,12 @@ module.exports =
   conversion: (test) ->
     s1 = SE2 2, 1, 45*deg
     test.deepEqual s1.toVec(), [2, 1], 'toVec'
+    rot = s1.toRot() ; rot_ans = [[1/sqrt2, -1/sqrt2], [1/sqrt2, 1/sqrt2]]
+    hom = s1.toHomogeneous() ; hom_ans = [[1/sqrt2, -1/sqrt2, 2], [1/sqrt2, 1/sqrt2, 1], [0, 0, 1]]
+    matcmp = (a, b) ->
+      N.all(N.leq(N.abs(N.sub(a, b)), 1e-12))
+    test.ok matcmp(rot, rot_ans), 'toRot'
+    test.ok matcmp(hom, hom_ans), 'toHomogeneous'
 
     test.done()
 

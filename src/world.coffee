@@ -8,6 +8,7 @@ IterMap = require './iter-map'
 SE2 = require './se2'
 Force = require './force'
 Body = require './body'
+aabb = require './aabb'
 ForceFuncMgr = require './force-func-mgr'
 
 defaultOptions =
@@ -82,6 +83,14 @@ module.exports = class World
   step: (dt) ->
     dt = @solver @_clampTime dt
 
+    # collision detection
+    @bodies.forEach (b1, b1i) =>
+      @bodies.forEach (b2, b2i) =>
+        if b1i == b2i then return
+        l = Boundary.intersect(b1, b2)
+
+
+
     #TODO: post-solver correction, discontinuity fix, etc.
 
     # save current state
@@ -96,6 +105,7 @@ module.exports = class World
 
   # called by solvers: calculate acceleration of all bodies according
   # to their "temporary next step" pos & vel
+  #TODO: "call before first step", "init"
   _getAcc: (dt) ->
 
     t = @tNow.t + dt

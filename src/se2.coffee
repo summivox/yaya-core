@@ -18,7 +18,20 @@ module.exports = class SE2
   ############
   # outbound conversion
 
+  # origin point
   toVec: -> [@x, @y]
+
+  # 2x2 rotation matrix
+  toRot: ->
+    c = cos @th ; s = sin @th
+    [[c, -s], [s, c]]
+
+  # 3x3 homogeneous transformation matrix
+  toHomogeneous: ->
+    c = cos @th
+    s = sin @th
+    [[c, -s, @x], [s, c, @y], [0, 0, 1]]
+
 
   ############
   # addition

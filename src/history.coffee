@@ -5,12 +5,11 @@ util = require 'util'
 module.exports = class History
   # @now: the object
   # @k: determines the size of the buffer
-  constructor: (@now, @k, @transform) ->
+  constructor: (@now, @k, @transform = _.cloneDeep) ->
     if !now?
       throw Error 'History: ctor: object is empty'
     if !k || k != ~~k || k < 0
       throw Error 'History: ctor: `k` should be non-negative integer'
-    @transform ||= (o) -> o
 
     @n = 1<<k
     @_mask = @n - 1
@@ -25,7 +24,7 @@ module.exports = class History
 
   # take a snapshot of the underlying object
   snapshot: ->
-    snap = _.cloneDeep @transform @now
+    snap = @transform @now
     i = @_i = (@_i + 1|0) & @_mask
     @_h[i] = snap
 

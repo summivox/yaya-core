@@ -1,9 +1,10 @@
 History = require '../src/history'
+_ = require 'lodash'
 
 module.exports =
   simpleTest: (test) ->
     o = v: [1]
-    t = ({v}) -> {v, t: true}
+    t = ({v}) -> _.cloneDeep {v, t: true}
     h = new History o, 2, t
 
     o.v[0] = 1; h.snapshot()
