@@ -5,8 +5,7 @@ util = require 'util'
 svgPath = require 'svg-path'
 
 SE2 = require './se2'
-aabb = require './aabb'
-{cbz, intersection} = require './geom'
+{aabb, cbz, intersection} = require './geom'
 
 print = (x) -> console.log util.inspect x, color: true, depth: null
 
@@ -35,6 +34,9 @@ module.exports = class Boundary
     #   S -> C
     prev = @start
     for seg in p
+      # also store t=0 endpoint of this segment (t=1 endpoint of previous)
+      seg.x0 = prev.x
+      seg.y0 = prev.y
       switch seg.type
         when 'H'
           seg.type = 'L'
@@ -63,15 +65,14 @@ module.exports = class Boundary
 
     # reason for 2nd pass: T need to see if previous segment is Q or T
     # converting T to C in one pass would lose this information
-    prev = @start
     for seg in p
       switch seg.type
         when 'Q'
           seg.type = 'C'
           xx = seg.x1*2/3
           yy = seg.y1*2/3
-          seg.x1 = prev.x / 3 + xx
-          seg.y1 = prev.y / 3 + yy
+          seg.x1 = seg.x0 / 3 + xx
+          seg.y1 = seg.y0 / 3 + yy
           seg.x2 = seg.x  / 3 + xx
           seg.y2 = seg.y  / 3 + yy
           break
@@ -124,9 +125,9 @@ module.exports = class Boundary
 
     @aabb = {xMin: xMinP, xMax: xMaxP, yMin: yMinP, yMax: yMaxP}
 
-  # returns all intersections between two boundary curves
+  # returns all intersections between two (translated/rotated) boundary curves
   # each intersection is identified by segment index and location
-  @intersect = (b1, b2) ->
+  @intersect = (b1, frame1, b2, frame2) ->
     ret = []
     if !aabb.intersect(b1.aabb, b2.aabb) then return ret
     s1p = b1.start

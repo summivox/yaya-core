@@ -2,16 +2,36 @@
 N = require 'numeric'
 {findRoots, findRealRoots} = require './poly-roots'
 
-# cubic bezier helpers (1D)
+# axis-aligned bounding box helpers
+# aabb: {xMin, xMax, yMin, yMax} (in world frame)
+module.exports.aabb = aabb =
+  intersect: (a, b) ->
+    if a.xMax < b.xMin || b.xMax < a.xMin then return false
+    if a.yMax < b.yMin || b.yMax < a.yMin then return false
+    return true
+
+# cubic bezier helpers
 module.exports.cbz = cbz =
   # evaluate
   eval: (p0, p1, p2, p3, t) ->
+    s = 1 - t
+    ss = s*s
+    sss = s*ss
     tt = t*t
     ttt = t*tt
-    u = 1 - t
-    uu = u*u
-    uuu = u*uu
-    uuu*p0 + 3*uu*t*p1 + 3*u*tt*p2 + ttt*p3
+    sss*p0 + 3*ss*t*p1 + 3*s*tt*p2 + ttt*p3
+
+  eval2: (p0, p1, p2, p3, t) ->
+    s = 1 - t
+    ss = s*s
+    sss = s*ss
+    tt = t*t
+    ttt = t*tt
+    c1 = 3*ss*t
+    c2 = 3*s*tt
+    x = sss*p0[0] + c1*p1[0] + c2*p2[0] + ttt*p3[0]
+    y = sss*p0[1] + c1*p1[1] + c2*p2[1] + ttt*p3[1]
+    [x, y]
 
   # polynomial coefficients, order 0 to 3
   poly: (p0, p1, p2, p3) ->
@@ -47,6 +67,7 @@ module.exports.cbz = cbz =
 #   cbz: {x0..3, y0..3}
 module.exports.intersection = intersection =
   eps: 1e-12
+  eps_c: 1e-8
 
   line_line: (l, r) ->
     # http://www.topcoder.com/tc?module=Static&d1=tutorials&d2=geometry2#line_line_intersection
@@ -85,9 +106,18 @@ module.exports.intersection = intersection =
       if !(0 <= tr <= 1) then continue
       {x, y, tl, tr}
 
-
   line_cbz: (l, r) ->
     {x, y, tl, tr} for {x, y, tl: tr, tr: tl} in @cbz_line(r, l)
+
+  cbz_cbz: (L, R) ->
+    #
+    ret = []
+    rec = (l, r, n) =>
+
+      if n > 0
+
+
+
 
 do test = ->
   l =
