@@ -3,6 +3,7 @@ N = require 'numeric'
 assert = require 'assert'
 util = require 'util'
 svgPath = require 'svg-path'
+_ = require 'lodash'
 
 SE2 = require './se2'
 {aabb, cbz, intersection} = require './geom'
@@ -10,7 +11,7 @@ SE2 = require './se2'
 print = (x) -> console.log util.inspect x, color: true, depth: null
 
 module.exports = class Boundary
-  constructor: (pathStr) ->
+  constructor: (@pathStr) ->
     if this not instanceof Boundary then return new Boundary pathStr
 
     # pre-process with svg-path:
@@ -34,9 +35,6 @@ module.exports = class Boundary
     #   S -> C
     prev = @start
     for seg in p
-      # also store t=0 endpoint of this segment (t=1 endpoint of previous)
-      seg.x0 = prev.x
-      seg.y0 = prev.y
       switch seg.type
         when 'H'
           seg.type = 'L'
@@ -65,35 +63,72 @@ module.exports = class Boundary
 
     # reason for 2nd pass: T need to see if previous segment is Q or T
     # converting T to C in one pass would lose this information
+    prev = @start
     for seg in p
-      switch seg.type
-        when 'Q'
-          seg.type = 'C'
-          xx = seg.x1*2/3
-          yy = seg.y1*2/3
-          seg.x1 = seg.x0 / 3 + xx
-          seg.y1 = seg.y0 / 3 + yy
-          seg.x2 = seg.x  / 3 + xx
-          seg.y2 = seg.y  / 3 + yy
-          break
+      if seg.type == 'Q'
+        seg.type = 'C'
+        xx = seg.x1*2/3
+        yy = seg.y1*2/3
+        seg.x1 = prev.x / 3 + xx
+        seg.y1 = prev.y / 3 + yy
+        seg.x2 = seg.x  / 3 + xx
+        seg.y2 = seg.y  / 3 + yy
       prev = seg
 
     # check if path is closed
     assert prev.x == @start.x && prev.y == @start.y
 
+    # normalize segments
+    # rel: relative to boundary frame (immutable)
+    #   rel[i] = {type, p0, p1, p2, p3}
+    @rel = rel = new Array p.length
+    prevP = [@start.x, @start.y]
+    for seg, i in p
+      p0 = prevP
+      prevP = p3 = [seg.x, seg.y]
+      rel[i] = r = {type: seg.type, p0, p3}
+      if seg.type == 'C'
+        r.p1 = [seg.x1, seg.y1]
+        r.p2 = [seg.x2, seg.y2]
+      else
+        r.p1 = p0
+        r.p2 = p3
+
+    # abs: relative to world frame (updated each timestep)
+    #   abs[i] = {type, x0, x1, x2, x3, y0, y1, y2, y3, aabb}
+    # not populated until given boundary frame
+    @abs = null
+
     #TODO: tangent checks
 
-    @path = p
     @ # done
 
+  # assemble back to SVG path string
   toString: ->
-    p = new svgPath.Path @path
-    p.toString()
+    ret = "M #{@start.x} #{@start.y}\n"
+    for {type, p0, p1, p2, p3} in seg
+      switch type
+        when 'L'
+          ret += "L #{p3[0]},#{p3[1]}\n"
+        when 'C'
+          ret += "C #{p1[0]},#{p1[1]} #{p2[0]},#{p2[1]} #{p3[0]},#{p3[1]}\n"
+    ret
 
-  # calculate AABB(axis-aligned boundary box) for each segment and whole boundary curve
-  # in the world frame
-  # frame: SE2 coords of the curve frame
-  calcAABB: (frame) ->
+  # given coord of boundary frame (SE2) in world frame:
+  #   update @abs
+  #   calculate AABB(axis-aligned boundary box) for each segment and whole boundary
+  update: (frame) ->
+    for {type, p0, p1, p2, p3}, i in @rel
+      [x0, y0] = frame.mulPoint p0
+      [x3, y3] = frame.mulPoint p3
+      if type == 'C'
+        [x1, y1] = frame.mulPoint p1
+        [x2, y2] = frame.mulPoint p2
+      else
+        [x1, y1] = p0
+        [x2, y2] = p3
+      @abs[i] = {type, x0, x1, x2, x3, y0, y1, y2, y3}
+
     # whole path AABB
     xMinP = yMinP = +Infinity
     xMaxP = yMaxP = -Infinity
@@ -103,51 +138,30 @@ module.exports = class Boundary
       if yMin < yMinP then yMinP = yMin
       if yMax > yMaxP then yMaxP = yMax
 
-    prevTr = frame.mulPoint @start
-    for seg in @path
-      segTr = frame.mulPoint [seg.x, seg.y]
+    for seg in @abs
       switch seg.type
         when 'L'
-          [x1, y1] = prevTr
-          [x2, y2] = segTr
-          if x1 > x2 then [x1, x2] = [x2, x1]
-          if y1 > y2 then [y1, y2] = [y2, y1]
-          upd seg.aabb = {xMin: x1, xMax: x2, yMin: y1, yMax: y2}
+          {x0, x3, y0, y3} = seg
+          if x0 > x3 then [x0, x3] = [x3, x0]
+          if y0 > y3 then [y0, y3] = [y3, y0]
+          upd seg.aabb = {xMin: x0, xMax: x3, yMin: y0, yMax: y3}
         when 'C'
-          [x0, y0] = prevTr
-          [x1, y1] = frame.mulPoint [seg.x1, seg.y1]
-          [x2, y2] = frame.mulPoint [seg.x2, seg.y2]
-          [x3, y3] = segTr
-          [xMin, xMax] = cbz.bound x0, x1, x2, x3
-          [yMin, yMax] = cbz.bound y0, y1, y2, y3
-          upd seg.aabb = {xMin, xMax, yMin, yMax}
-      prevTr = segTr
+          upd seg.aabb = cbz.bound2 seg
 
     @aabb = {xMin: xMinP, xMax: xMaxP, yMin: yMinP, yMax: yMaxP}
 
-  # returns all intersections between two (translated/rotated) boundary curves
+  # returns all intersections between two boundary curves (in world frame)
   # each intersection is identified by segment index and location
-  @intersect = (b1, frame1, b2, frame2) ->
+  @intersect = (bl, br) ->
     ret = []
-    if !aabb.intersect(b1.aabb, b2.aabb) then return ret
-    s1p = b1.start
-    for s1, s1i in b1.path
-      s2p = b2.start
-      for s2, s2i in b2.path
-        if !aabb.intersect(s1.aabb, s2.aabb) then continue
-
-        if s1.type == 'L' && s2.type == 'L'
-          null #TODO
-        else if s1.type == 'L' || s2.type == 'L'
-          null #TODO
-        else
-          null # TODO
-
-        s2p = s2
-      s1p = s1
-
+    if !aabb.intersect(bl.aabb, br.aabb) then return ret
+    for sl, sli in bl.path
+      for sr, sri in br.path
+        if !aabb.intersect(sl.aabb, s2.aabb) then continue
+        xs = intersect[sl.type + sr.type](sl, sr)
+        for {x, y, tl, tr} in xs
+          ret.push {x, y, sli, tl, sri, tr}
     ret
-
 
 
 do test = ->
@@ -163,6 +177,7 @@ do test = ->
         z
   """
   console.log a.toString()
+  print a
   a.calcAABB SE2(0, 0, 30*deg)
   b = a.aabb
   print [b.xMin, b.xMax, b.yMin, b.yMax]

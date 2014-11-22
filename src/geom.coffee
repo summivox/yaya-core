@@ -10,28 +10,56 @@ module.exports.aabb = aabb =
     if a.yMax < b.yMin || b.yMax < a.yMin then return false
     return true
 
-# cubic bezier helpers
+# cubic bezier helpers (1D)
 module.exports.cbz = cbz =
   # evaluate
-  eval: (p0, p1, p2, p3, t) ->
+  valT: (t) ->
     s = 1 - t
     ss = s*s
     sss = s*ss
     tt = t*t
     ttt = t*tt
-    sss*p0 + 3*ss*t*p1 + 3*s*tt*p2 + ttt*p3
+    (p0, p1, p2, p3) -> sss*p0 + 3*ss*t*p1 + 3*s*tt*p2 + ttt*p3
+  val: (p0, p1, p2, p3, t) -> cbz.valT(t)(p0, p1, p2, p3)
+  val2: (c, t) ->
+    f = cbz.valT(t)
+    [f(c.x0, c.x1, c.x2, c.x3), f(c.y0, c.y1, c.y2, c.y3)]
 
-  eval2: (p0, p1, p2, p3, t) ->
+  # split the curve at t
+  # returns: [[a0, a1, a2, a3], [b0, b1, b2, b3]]
+  splitT: (t) ->
     s = 1 - t
     ss = s*s
     sss = s*ss
     tt = t*t
     ttt = t*tt
-    c1 = 3*ss*t
-    c2 = 3*s*tt
-    x = sss*p0[0] + c1*p1[0] + c2*p2[0] + ttt*p3[0]
-    y = sss*p0[1] + c1*p1[1] + c2*p2[1] + ttt*p3[1]
-    [x, y]
+    st2 = s*t*2
+    sst3 = ss*t*3
+    stt3 = s*tt*3
+    (p0, p1, p2, p3) ->
+      pt = sss*p0 + sst3*p1 + stt3*p2 + ttt*p3
+      [
+        [
+          p0
+          s*p0 + t*p1
+          ss*p0 + st2*p1 + tt*p2
+          pt
+        ]
+        [
+          pt
+          ss*p1 + st2*p2 + tt*p3
+          s*p2 + t*p3
+          p3
+        ]
+      ]
+  split: (p0, p1, p2, p3, t) -> cbz.splitT(t)(p0, p1, p2, p3)
+  split2: (c, t) ->
+    f = cbz.splitT(t)
+    a = {}
+    b = {}
+    [[a.x0, a.x1, a.x2, a.x3], [b.x0, b.x1, b.x2, b.x3]] = f(c.x0, c.x1, c.x2, c.x3)
+    [[a.y0, a.y1, a.y2, a.y3], [b.y0, b.y1, b.y2, b.y3]] = f(c.y0, c.y1, c.y2, c.y3)
+    [a, b]
 
   # polynomial coefficients, order 0 to 3
   poly: (p0, p1, p2, p3) ->
@@ -54,79 +82,135 @@ module.exports.cbz = cbz =
   bound: (p0, p1, p2, p3) ->
     ps = [p0, p3]
     [t1, t2] = @dRoots p0, p1, p2, p3
-    if 0 < t1 < 1 then ps.push @eval p0, p1, p2, p3, t1
-    if 0 < t2 < 1 then ps.push @eval p0, p1, p2, p3, t2
+    if 0 < t1 < 1 then ps.push cbz.val p0, p1, p2, p3, t1
+    if 0 < t2 < 1 then ps.push cbz.val p0, p1, p2, p3, t2
     [min.apply(M, ps)
      max.apply(M, ps)]
+  bound2: (c) ->
+    {x0, x1, x2, x3, y0, y1, y2, y3} = c
+    [xMin, xMax] = cbz.bound x0, x1, x2, x3
+    [yMin, yMax] = cbz.bound y0, y1, y2, y3
+    {xMin, xMax, yMin, yMax}
 
 
 # intersection helpers (2D)
-# return: [{x, y, tl, tr}] (incl. curve param at intersection)
+# return: [{x, y, tl, tr}] (point + curve params)
 # input:
-#   line: {x1, y1, x2, y2}
-#   cbz: {x0..3, y0..3}
+#   L: {x0, x3, y0, y3}
+#   C: {x0..3, y0..3}
 module.exports.intersection = intersection =
   eps: 1e-12
-  eps_c: 1e-8
+  eps_cc: 1e-8
+  depth_cc: 24
 
-  line_line: (l, r) ->
+  LL: (l, r) ->
     # http://www.topcoder.com/tc?module=Static&d1=tutorials&d2=geometry2#line_line_intersection
-    al = l.y2 - l.y1
-    bl = l.x1 - l.x2
-    cl = al*l.x1 + bl*l.y1
-    ar = r.y2 - r.y1
-    br = r.x1 - r.x2
-    cr = ar*r.x1 + br*r.y1
+    al = l.y3 - l.y0
+    bl = l.x0 - l.x3
+    cl = al*l.x0 + bl*l.y0
+    ar = r.y3 - r.y0
+    br = r.x0 - r.x3
+    cr = ar*r.x0 + br*r.y0
     det = al*br - ar*bl
-    if abs(det) <= @eps then return []
+    if abs(det) <= @eps then return [] # ignore parallel cases
     x = (br*cl - bl*cr)/det
     y = (al*cr - ar*cl)/det
-    if abs(al) < abs(bl) then tl = (x - l.x1)/bl else tl = (y - l.y1)/al
+    if abs(al) < abs(bl) then tl = (x - l.x0)/bl else tl = (y - l.y0)/al
     if !(0 <= tl <= 1) then return []
-    if abs(ar) < abs(br) then tr = (x - r.x1)/br else tr = (y - r.y1)/ar
+    if abs(ar) < abs(br) then tr = (x - r.x0)/br else tr = (y - r.y0)/ar
     if !(0 <= tr <= 1) then return []
     [{x, y, tl, tr}]
 
-  cbz_line: (l, r) ->
+  CL: (l, r) ->
     # derived from: http://www.particleincell.com/blog/2013/cubic-line-intersection/
     # basic idea: plug spline [x(t), y(t)] into line ax+by=c to get cubic poly p(t)
     polyX = cbz.poly(l.x0, l.x1, l.x2, l.x3)
     polyY = cbz.poly(l.y0, l.y1, l.y2, l.y3)
-    ar = r.y2 - r.y1
-    br = r.x1 - r.x2
-    cr = ar*r.x1 + br*r.y1
+    ar = r.y3 - r.y0
+    br = r.x0 - r.x3
+    cr = ar*r.x0 + br*r.y0
     poly = N.add(N.mul(polyX, ar), N.mul(polyY, br))
     poly[0] -= cr
     roots = findRealRoots poly
     for tl in roots
       if !(0 <= tl <= 1) then continue
-      x = cbz.eval(l.x0, l.x1, l.x2, l.x3, tl)
-      y = cbz.eval(l.y0, l.y1, l.y2, l.y3, tl)
-      if abs(ar) < abs(br) then tr = (x - r.x1)/b2 else tr = (y - r.y1)/ar
+      x = cbz.val(l.x0, l.x1, l.x2, l.x3, tl)
+      y = cbz.val(l.y0, l.y1, l.y2, l.y3, tl)
+      if abs(ar) < abs(br) then tr = (x - r.x0)/b2 else tr = (y - r.y0)/ar
       if !(0 <= tr <= 1) then continue
       {x, y, tl, tr}
 
-  line_cbz: (l, r) ->
-    {x, y, tl, tr} for {x, y, tl: tr, tr: tl} in @cbz_line(r, l)
+  LC: (l, r) =>
+    {x, y, tl, tr} for {x, y, tl: tr, tr: tl} in @CL(r, l)
 
-  cbz_cbz: (L, R) ->
-    #
+  CC: (L, R) ->
     ret = []
-    rec = (l, r, n) =>
 
-      if n > 0
+    nn = 0 #DEBUG: timing
 
+    # recursive bisection
+    f = (l, lt, r, rt, n) ->
+      ++nn #DEBUG: timing
+      # bounding box check
+      bl = cbz.bound2 l
+      br = cbz.bound2 r
+      if !aabb.intersect(bl, br) then return
 
+      ltm = (lt[0] + lt[1]) / 2
+      rtm = (rt[0] + rt[1]) / 2
 
+      # enough depth / precision
+      diag2 = N.norm2Squared [bl.xMax - bl.xMin, bl.yMax - bl.yMin]
+      if n == 0 || diag2*2 <= intersection.eps_cc
+        [x, y] = cbz.val2(l, ltm)
+        ret.push {x, y, tl: ltm, tr: rtm, n, diag2}
+        return
+
+      # split the curve
+      [l1, l2] = cbz.split2(l, 0.5)
+      [r1, r2] = cbz.split2(r, 0.5)
+      lt1 = [lt[0], ltm]
+      lt2 = [ltm, lt[1]]
+      rt1 = [rt[0], rtm]
+      rt2 = [rtm, rt[1]]
+
+      # test each pair
+      f(l1, lt1, r1, rt1, n-1)
+      f(l1, lt1, r2, rt2, n-1)
+      f(l2, lt2, r1, rt1, n-1)
+      f(l2, lt2, r2, rt2, n-1)
+
+    # initial: test whole curve pair
+    f(L, [0, 1], R, [0, 1], intersection.depth_cc)
+
+    #DEBUG: timing
+    console.log nn
+
+    # remove "duplicate" intersections
+    ret.sort (a, b) -> a.tl - b.tl
+    last = ret[0]
+    retM = [last]
+    for curr in ret[1..]
+      dist2 = N.norm2Squared [curr.x - last.x, curr.y - last.y]
+      if dist2 > intersection.eps_cc then retM.push curr
+      last = curr
+    retM
 
 do test = ->
-  l =
+  c1 =
     x0: -2.87147, y0: 2.1893
     x1: 3.10783, y1: 2.25972
     x2: -0.085317, y2: -2.31284
     x3: 3.56043, y3: -2.86662
-  r =
-    x1: -2, y1: 3
-    x2: 3, y2: -2
-  ans = intersection.cbz_line l, r
-  console.dir ans
+  console.dir cbz.split2 c1, 0.3
+  l =
+    x0: -2, y0: 3
+    x3: 3, y3: -2
+  # console.dir intersection.CL c1, l
+  c2 =
+    x0: -1.3067334292909472, y0: 3.8629415448559428
+    x1: 0.791902640219103, y1: 3.376208314133372
+    x2: 0.6644856900883802, y2: -3.2024261729045396
+    x3: 1.704852219895173, y3: 1.0996416534919113
+  console.dir intersection.CC c1, c2
+  # console.dir intersection.CC cbz.split2(c1, 0.5)[0], cbz.split2(c2, 0.5)[0]
