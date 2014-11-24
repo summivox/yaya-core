@@ -100,8 +100,7 @@ module.exports.cbz = cbz =
 #   C: {x0..3, y0..3}
 module.exports.intersection = intersection =
   eps: 1e-12
-  eps_cc: 1e-8
-  depth_cc: 24
+  depth_cc: 20
 
   LL: (l, r) ->
     # http://www.topcoder.com/tc?module=Static&d1=tutorials&d2=geometry2#line_line_intersection
@@ -146,11 +145,12 @@ module.exports.intersection = intersection =
   CC: (L, R) ->
     ret = []
 
-    nn = 0 #DEBUG: timing
+    # nn = 0 #DEBUG: timing
 
     # recursive bisection
     f = (l, lt, r, rt, n) ->
-      ++nn #DEBUG: timing
+      # ++nn #DEBUG: timing
+
       # bounding box check
       bl = cbz.bound2 l
       br = cbz.bound2 r
@@ -159,11 +159,10 @@ module.exports.intersection = intersection =
       ltm = (lt[0] + lt[1]) / 2
       rtm = (rt[0] + rt[1]) / 2
 
-      # enough depth / precision
-      diag2 = N.norm2Squared [bl.xMax - bl.xMin, bl.yMax - bl.yMin]
-      if n == 0 || diag2*2 <= intersection.eps_cc
+      # deep enough => found intersection
+      if n == 0
         [x, y] = cbz.val2(l, ltm)
-        ret.push {x, y, tl: ltm, tr: rtm, n, diag2}
+        ret.push {x, y, tl: ltm, tr: rtm}
         return
 
       # split the curve
@@ -181,19 +180,20 @@ module.exports.intersection = intersection =
       f(l2, lt2, r2, rt2, n-1)
 
     # initial: test whole curve pair
-    f(L, [0, 1], R, [0, 1], intersection.depth_cc)
+    n0 = intersection.depth_cc
+    f(L, [0, 1], R, [0, 1], n0)
 
     #DEBUG: timing
-    console.log nn
+    # console.log nn
 
-    # remove "duplicate" intersections
+    # merge "duplicate" intersections
     ret.sort (a, b) -> a.tl - b.tl
     last = ret[0]
     retM = [last]
-    for curr in ret[1..]
-      dist2 = N.norm2Squared [curr.x - last.x, curr.y - last.y]
-      if dist2 > intersection.eps_cc then retM.push curr
-      last = curr
+    e0 = 4/(1<<n0) # interval range tolerance
+    for x in ret
+      if -e0 <= (x.tl - last.tl) <= e0 then continue
+      retM.push last = x
     retM
 
 do test = ->

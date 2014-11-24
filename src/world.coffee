@@ -8,18 +8,19 @@ IterMap = require './iter-map'
 SE2 = require './se2'
 Force = require './force'
 Body = require './body'
-aabb = require './aabb'
 ForceFuncMgr = require './force-func-mgr'
+Boundary = require './boundary'
 
 defaultOptions =
   k: 3 # size of history = 2^k
   timestep:
     min: 1e-6
     max: Infinity
+  scale: 1 # 1 meter in real world = svgScale px on display
 
 module.exports = class World
   constructor: (options = {}) ->
-    @options = _.clone defaultOptions
+    @options = _.cloneDeep defaultOptions
     _.merge @options, options
 
     # simulation time struct:
@@ -83,13 +84,23 @@ module.exports = class World
   step: (dt) ->
     dt = @solver @_clampTime dt
 
-    # collision detection
-    @bodies.forEach (b1, b1i) =>
-      @bodies.forEach (b2, b2i) =>
-        if b1i == b2i then return
-        l = Boundary.intersect(b1, b2)
-
-
+    # collision detection:
+    #   only handle bodies with boundaries attached
+    #   check each pair (unordered) once
+    collBodies = []
+    collList = []
+    @bodies.forEach (body) ->
+      if body.boundary?
+        body.boundary.update()
+        collBodies.push body
+    l = collBodies.length
+    for i in [0...l]
+      bi = collBodies[i]
+      for j in [i+1...l]
+        bj = collBodies[j]
+        xs = Boundary.intersect(bi, bj)
+        if xs.length > 0
+          null #TODO
 
     #TODO: post-solver correction, discontinuity fix, etc.
 

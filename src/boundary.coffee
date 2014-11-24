@@ -11,8 +11,9 @@ SE2 = require './se2'
 print = (x) -> console.log util.inspect x, color: true, depth: null
 
 module.exports = class Boundary
-  constructor: (@pathStr) ->
+  constructor: (@pathStr, scale = 1) ->
     if this not instanceof Boundary then return new Boundary pathStr
+    k = 1/scale
 
     # pre-process with svg-path:
     #   parse, relative to absolute, arc to cubic
@@ -78,18 +79,17 @@ module.exports = class Boundary
     # check if path is closed
     assert prev.x == @start.x && prev.y == @start.y
 
-    # normalize segments
+    # scale segments and change to uniform struct {type, p0..3: [x, y]}
     # rel: relative to boundary frame (immutable)
-    #   rel[i] = {type, p0, p1, p2, p3}
     @rel = rel = new Array p.length
-    prevP = [@start.x, @start.y]
+    prevP = [@start.x*k, -@start.y*k]
     for seg, i in p
       p0 = prevP
-      prevP = p3 = [seg.x, seg.y]
+      prevP = p3 = [seg.x*k, -seg.y*k]
       rel[i] = r = {type: seg.type, p0, p3}
       if seg.type == 'C'
-        r.p1 = [seg.x1, seg.y1]
-        r.p2 = [seg.x2, seg.y2]
+        r.p1 = [seg.x1*k, -seg.y1*k]
+        r.p2 = [seg.x2*k, -seg.y2*k]
       else
         r.p1 = p0
         r.p2 = p3
@@ -164,7 +164,7 @@ module.exports = class Boundary
     ret
 
 
-do test = ->
+test = ->
   deg = PI/180
   a = new Boundary """
         m 300 100
@@ -182,3 +182,4 @@ do test = ->
   b = a.aabb
   print [b.xMin, b.xMax, b.yMin, b.yMax]
   print a
+# do test

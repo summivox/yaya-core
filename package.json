@@ -13,7 +13,11 @@
     "iced-coffee-script": "~1.8.0",
     "coffee-script": "~1.8.0",
     "browserify": "~6.2.0",
-    "coffeeify": "~0.7.0"
+    "coffeeify": "~0.7.0",
+    "icsify": "~0.7.0"
   },
-  "main": "index.js"
+  "main": "index.js",
+  "browserify": {
+    "transform": ["coffeeify"]
+  }
 }
