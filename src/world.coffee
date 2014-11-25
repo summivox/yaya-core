@@ -16,7 +16,7 @@ defaultOptions =
   timestep:
     min: 1e-6
     max: Infinity
-  scale: 1 # 1 meter in real world = svgScale px on display
+  spaceScale: 1 # (1m) in simulated world = (spaceScale) px on display
 
 module.exports = class World
   constructor: (options = {}) ->
@@ -53,9 +53,11 @@ module.exports = class World
     @ # done
 
   # return: null if fail, body if successful
-  addBody: (id, body) ->
+  addBody: (id, body, boundaryPathStr) ->
     if @bodies.has id then return null
-    body.init @options.k
+    if boundaryPathStr
+      body.boundary = new Boundary boundaryPathStr, @options.spaceScale
+    body.init @options
     @bodies.set id, body
     @tNow.modified = true
     return body
@@ -80,8 +82,12 @@ module.exports = class World
 
   # advance simulation in time
   # dt: suggested timestep to take
+  # {min, max}:
+  # observer: debug callbacks revealing internals:
+  #   collision: (collList) -> ...
   # return: actually performed timestep
-  step: (dt) ->
+  #TODO: refactor min/max timestep to here -- better semantics
+  step: (dt, observer = {}) ->
     dt = @solver @_clampTime dt
 
     # collision detection:
@@ -100,7 +106,9 @@ module.exports = class World
         bj = collBodies[j]
         xs = Boundary.intersect(bi, bj)
         if xs.length > 0
-          null #TODO
+          collList.push {i, j, xs}
+    observer.collision? collList
+
 
     #TODO: post-solver correction, discontinuity fix, etc.
 

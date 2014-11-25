@@ -4,6 +4,7 @@ _ = require 'lodash'
 
 SE2 = require './se2'
 History = require './history'
+Boundary = require './boundary'
 
 module.exports = class Body
   # m: mass (concentrated at origin)
@@ -24,5 +25,5 @@ module.exports = class Body
     @boundary = null
 
   # reason for independent init: propagate options from World
-  init: (k) ->
-    @frameHistory = new History @frame, k
+  init: (options) ->
+    @frameHistory = new History @frame, options.k

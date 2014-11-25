@@ -4,14 +4,20 @@
       <w>aabb</w>
       <w>bbox</w>
       <w>beeman</w>
+      <w>browserify</w>
+      <w>contrib</w>
       <w>coord</w>
       <w>coords</w>
+      <w>dest</w>
       <w>diag</w>
+      <w>icsify</w>
       <w>kerner</w>
       <w>lodash</w>
+      <w>minify</w>
       <w>struct</w>
       <w>timestep</w>
       <w>timesteps</w>
+      <w>uglify</w>
       <w>verlet</w>
     </words>
   </dictionary>
