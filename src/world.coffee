@@ -15,7 +15,7 @@ defaultOptions =
   k: 3 # size of history = 2^k
   timestep:
     min: 1e-6
-    max: Infinity
+    max: 1e-2
   spaceScale: 1 # (1m) in simulated world = (spaceScale) px on display
 
 module.exports = class World
@@ -97,14 +97,14 @@ module.exports = class World
     collList = []
     @bodies.forEach (body) ->
       if body.boundary?
-        body.boundary.update()
+        body.boundary.update body.frame.pos
         collBodies.push body
     l = collBodies.length
     for i in [0...l]
       bi = collBodies[i]
       for j in [i+1...l]
         bj = collBodies[j]
-        xs = Boundary.intersect(bi, bj)
+        xs = Boundary.intersect(bi.boundary, bj.boundary)
         if xs.length > 0
           collList.push {i, j, xs}
     observer.collision? collList

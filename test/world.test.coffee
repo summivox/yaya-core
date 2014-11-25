@@ -59,7 +59,7 @@ module.exports =
       b1 = w.findBody('b1')
       b2 = w.findBody('b2')
 
-      w._getAcc()
+      w._getAcc 0
 
       x = 1-1/sqrt5
       test.ok SE2(x, x*2, 0).equal(b1.frame.acc), 'body #1'
@@ -75,7 +75,7 @@ module.exports =
       b1 = w.findBody('b1')
       b2 = w.findBody('b2')
 
-      w._getAcc()
+      w._getAcc 0
 
       test.ok SE2(0, -10, 0).equal(b1.frame.acc, 1e-12), 'body #1'
       test.ok SE2(0, -10, 0).equal(b2.frame.acc, 1e-12), 'body #2'
@@ -109,6 +109,7 @@ module.exports =
       earthMoon: (test) ->
         w = earthMoonWorld()
         w.solver = Solver.verletFixed
+        w.options.timeStep = {min: 1, max: Infinity}
         earth = w.findBody 'earth'
         moon = w.findBody 'moon'
         # w._getAcc 0

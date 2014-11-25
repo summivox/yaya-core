@@ -196,7 +196,7 @@ module.exports.intersection = intersection =
       retM.push last = x
     retM
 
-do test = ->
+test = ->
   c1 =
     x0: -2.87147, y0: 2.1893
     x1: 3.10783, y1: 2.25972
@@ -214,3 +214,5 @@ do test = ->
     x3: 1.704852219895173, y3: 1.0996416534919113
   console.dir intersection.CC c1, c2
   # console.dir intersection.CC cbz.split2(c1, 0.5)[0], cbz.split2(c2, 0.5)[0]
+
+# do test

@@ -16,6 +16,7 @@ module.exports = class Body
   # forceFuncs: ref entries of ForceFuncs associated with this body
   # boundary: simple closed curve acting as 
   constructor: (@m, @jz, frame = {}) ->
+    if this not instanceof Body then return new Body m, jz, frame
     @forceFuncs = []
     @frame =
       pos: SE2(0, 0, 0)

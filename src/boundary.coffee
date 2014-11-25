@@ -81,7 +81,8 @@ module.exports = class Boundary
 
     # scale segments and change to uniform struct {type, p0..3: [x, y]}
     # rel: relative to boundary frame (immutable)
-    @rel = rel = new Array p.length
+    l = p.length
+    @rel = rel = new Array l
     prevP = [@start.x*k, -@start.y*k]
     for seg, i in p
       p0 = prevP
@@ -97,7 +98,7 @@ module.exports = class Boundary
     # abs: relative to world frame (updated each timestep)
     #   abs[i] = {type, x0, x1, x2, x3, y0, y1, y2, y3, aabb}
     # not populated until given boundary frame
-    @abs = null
+    @abs = new Array l
 
     #TODO: tangent checks
 
@@ -106,7 +107,7 @@ module.exports = class Boundary
   # assemble back to SVG path string
   toString: ->
     ret = "M #{@start.x} #{@start.y}\n"
-    for {type, p0, p1, p2, p3} in seg
+    for {type, p0, p1, p2, p3} in @rel
       switch type
         when 'L'
           ret += "L #{p3[0]},#{p3[1]}\n"
