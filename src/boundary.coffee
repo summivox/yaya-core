@@ -156,10 +156,10 @@ module.exports = class Boundary
   @intersect = (bl, br) ->
     ret = []
     if !aabb.intersect(bl.aabb, br.aabb) then return ret
-    for sl, sli in bl.path
-      for sr, sri in br.path
-        if !aabb.intersect(sl.aabb, s2.aabb) then continue
-        xs = intersect[sl.type + sr.type](sl, sr)
+    for sl, sli in bl.abs
+      for sr, sri in br.abs
+        if !aabb.intersect(sl.aabb, sr.aabb) then continue
+        xs = intersection[sl.type + sr.type](sl, sr)
         for {x, y, tl, tr} in xs
           ret.push {x, y, sli, tl, sri, tr}
     ret

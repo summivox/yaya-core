@@ -135,12 +135,12 @@ module.exports.intersection = intersection =
       if !(0 <= tl <= 1) then continue
       x = cbz.val(l.x0, l.x1, l.x2, l.x3, tl)
       y = cbz.val(l.y0, l.y1, l.y2, l.y3, tl)
-      if abs(ar) < abs(br) then tr = (x - r.x0)/b2 else tr = (y - r.y0)/ar
+      if abs(ar) < abs(br) then tr = (x - r.x0)/br else tr = (y - r.y0)/ar
       if !(0 <= tr <= 1) then continue
       {x, y, tl, tr}
 
-  LC: (l, r) =>
-    {x, y, tl, tr} for {x, y, tl: tr, tr: tl} in @CL(r, l)
+  LC: (l, r) ->
+    {x, y, tl, tr} for {x, y, tl: tr, tr: tl} in intersection.CL(r, l)
 
   CC: (L, R) ->
     ret = []
