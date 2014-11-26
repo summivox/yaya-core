@@ -100,9 +100,9 @@ module.exports = class World
         body.boundary.update body.frame.pos
         collBodies.push body
     l = collBodies.length
-    for i in [0...l]
+    for i in [0...l-1] by 1
       bi = collBodies[i]
-      for j in [i+1...l]
+      for j in [i+1...l] by 1
         bj = collBodies[j]
         xs = Boundary.intersect(bi.boundary, bj.boundary)
         if xs.length > 0

@@ -82,10 +82,9 @@ module.exports.cbz = cbz =
   bound: (p0, p1, p2, p3) ->
     ps = [p0, p3]
     [t1, t2] = @dRoots p0, p1, p2, p3
-    if 0 < t1 < 1 then ps.push cbz.val p0, p1, p2, p3, t1
-    if 0 < t2 < 1 then ps.push cbz.val p0, p1, p2, p3, t2
-    [min.apply(M, ps)
-     max.apply(M, ps)]
+    if 0 <= t1 <= 1 then ps.push cbz.val p0, p1, p2, p3, t1
+    if 0 <= t2 <= 1 then ps.push cbz.val p0, p1, p2, p3, t2
+    [min(ps...), max(ps...)]
   bound2: (c) ->
     {x0, x1, x2, x3, y0, y1, y2, y3} = c
     [xMin, xMax] = cbz.bound x0, x1, x2, x3
@@ -114,9 +113,9 @@ module.exports.intersection = intersection =
     if abs(det) <= @eps then return [] # ignore parallel cases
     x = (br*cl - bl*cr)/det
     y = (al*cr - ar*cl)/det
-    if abs(al) < abs(bl) then tl = (x - l.x0)/bl else tl = (y - l.y0)/al
+    if abs(al) < abs(bl) then tl = (l.x0 - x)/bl else tl = (y - l.y0)/al
     if !(0 <= tl <= 1) then return []
-    if abs(ar) < abs(br) then tr = (x - r.x0)/br else tr = (y - r.y0)/ar
+    if abs(ar) < abs(br) then tr = (r.x0 - x)/br else tr = (y - r.y0)/ar
     if !(0 <= tr <= 1) then return []
     [{x, y, tl, tr}]
 
@@ -135,7 +134,7 @@ module.exports.intersection = intersection =
       if !(0 <= tl <= 1) then continue
       x = cbz.val(l.x0, l.x1, l.x2, l.x3, tl)
       y = cbz.val(l.y0, l.y1, l.y2, l.y3, tl)
-      if abs(ar) < abs(br) then tr = (x - r.x0)/br else tr = (y - r.y0)/ar
+      if abs(ar) < abs(br) then tr = (r.x0 - x)/br else tr = (y - r.y0)/ar
       if !(0 <= tr <= 1) then continue
       {x, y, tl, tr}
 

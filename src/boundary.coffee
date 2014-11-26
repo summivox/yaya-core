@@ -119,6 +119,7 @@ module.exports = class Boundary
   #   update @abs
   #   calculate AABB(axis-aligned boundary box) for each segment and whole boundary
   update: (frame) ->
+    # @rel => @abs
     for {type, p0, p1, p2, p3}, i in @rel
       [x0, y0] = frame.mulPoint p0
       [x3, y3] = frame.mulPoint p3
@@ -126,14 +127,14 @@ module.exports = class Boundary
         [x1, y1] = frame.mulPoint p1
         [x2, y2] = frame.mulPoint p2
       else
-        [x1, y1] = p0
-        [x2, y2] = p3
+        x1 = x0; y1 = y0
+        x2 = x3; y2 = y3
       @abs[i] = {type, x0, x1, x2, x3, y0, y1, y2, y3}
 
     # whole path AABB
     xMinP = yMinP = +Infinity
     xMaxP = yMaxP = -Infinity
-    upd = ({xMin, xMax, yMin, yMax}) ->
+    updP = ({xMin, xMax, yMin, yMax}) ->
       if xMin < xMinP then xMinP = xMin
       if xMax > xMaxP then xMaxP = xMax
       if yMin < yMinP then yMinP = yMin
@@ -145,9 +146,9 @@ module.exports = class Boundary
           {x0, x3, y0, y3} = seg
           if x0 > x3 then [x0, x3] = [x3, x0]
           if y0 > y3 then [y0, y3] = [y3, y0]
-          upd seg.aabb = {xMin: x0, xMax: x3, yMin: y0, yMax: y3}
+          updP seg.aabb = {xMin: x0, xMax: x3, yMin: y0, yMax: y3}
         when 'C'
-          upd seg.aabb = cbz.bound2 seg
+          updP seg.aabb = cbz.bound2 seg
 
     @aabb = {xMin: xMinP, xMax: xMaxP, yMin: yMinP, yMax: yMaxP}
 
