@@ -1,4 +1,4 @@
-{sin, cos, tan, abs, sqrt, atan2, min, max, PI} = M = Math
+{sin, cos, tan, abs, sign, sqrt, atan2, min, max, PI} = M = Math
 N = require 'numeric'
 assert = require 'assert'
 util = require 'util'
@@ -37,6 +37,8 @@ module.exports = class Boundary
     prev = @start
     for seg in p
       switch seg.type
+        when 'M'
+          throw new Error "yaya: Boudndary: broken path"
         when 'H'
           seg.type = 'L'
           seg.y = prev.y
@@ -77,7 +79,8 @@ module.exports = class Boundary
       prev = seg
 
     # check if path is closed
-    assert prev.x == @start.x && prev.y == @start.y
+    if prev.x != @start.x || prev.y != @start.y
+      throw new Error "yaya: Boundary: path not closed"
 
     # scale segments and change to uniform struct {type, p0..3: [x, y]}
     # rel: relative to boundary frame (immutable)
@@ -100,7 +103,12 @@ module.exports = class Boundary
     # not populated until given boundary frame
     @abs = new Array l
 
-    #TODO: tangent checks
+    # dir: whether the path circles origin CCW (1) or CW (-1)
+    # find this by taking cross product of starting point and starting tangent
+    @dir = do ->
+      [x0, y0] = v0 = rel[0].p0
+      [xt, yt] = vt = N.sub(rel[0].p1, v0)
+      Math.sign(x0*yt-y0*xt)
 
     @ # done
 

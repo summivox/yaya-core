@@ -7,7 +7,7 @@ N = require 'numeric'
 module.exports = class SE2
   # trivial and copy (with new-guard and default zeroing)
   constructor: (@x, @y, @th) ->
-    if this not instanceof SE2 then return new SE2 arguments...
+    if this not instanceof SE2 then return new SE2 x, y, th
     if typeof x != 'number'
       {x: @x, y: @y, th: @th} = x
     @x ?= 0; @y ?= 0; @th ?= 0

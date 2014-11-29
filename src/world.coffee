@@ -71,7 +71,7 @@ module.exports = class World
     @bodies.delete id
     for ffEntry in body.forceFuncs
       @forceFuncs.remove ffEntry, body
-    @tnow.modified = true
+    @tNow.modified = true
     body
 
   #TODO: {add, remove}{Force, Field}
@@ -88,7 +88,7 @@ module.exports = class World
   # return: actually performed timestep
   #TODO: refactor min/max timestep to here -- better semantics
   step: (dt, observer = {}) ->
-    dt = @solver @_clampTime dt
+    dt = @solver(@tNow.t, @_clampTime(dt))
 
     # collision detection:
     #   only handle bodies with boundaries attached
@@ -125,9 +125,7 @@ module.exports = class World
   # called by solvers: calculate acceleration of all bodies according
   # to their "temporary next step" pos & vel
   #TODO: "call before first step", "init"
-  _getAcc: (dt) ->
-
-    t = @tNow.t + dt
+  _getAcc: (t, dt) ->
     @bodies.forEach (body, id) =>
       acc = body.frame.acc = SE2(0, 0, 0)
       for field in @fields
@@ -135,7 +133,7 @@ module.exports = class World
         acc.addEq force.toAcc body
     @forceFuncs.forEach (ffEntry) ->
       {bodyP, bodyN} = ffEntry
-      forceP = ffEntry.f(t) # need to preserve context
+      forceP = ffEntry.f(t, dt) # need to preserve context
       if bodyP && bodyP != @ground
         # forceP: moment component already at bodyP
         bodyP.frame.acc.addEq forceP.toAcc(bodyP)

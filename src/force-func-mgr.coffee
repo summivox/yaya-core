@@ -6,8 +6,9 @@ module.exports = class ForceFuncMgr
   constructor: ->
     @_a = []
 
-  # f: (t) -> {x, y, th}
+  # f: (t, dt) -> {x, y, th}
   #   t: simulation time
+  #   dt: timestep
   #   returned force acts on and has moment component relative to @bodyP ("positive")
   #   its reaction force is exerted (by World) onto @bodyN ("negative")
   add: (bodyP, bodyN, f) ->
