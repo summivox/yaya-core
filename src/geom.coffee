@@ -10,7 +10,7 @@ module.exports.aabb = aabb =
     if a.yMax < b.yMin || b.yMax < a.yMin then return false
     return true
 
-# cubic bezier helpers (1D)
+# cubic bezier helpers
 module.exports.cbz = cbz =
   # evaluate
   valT: (t) ->
@@ -23,6 +23,17 @@ module.exports.cbz = cbz =
   val: (p0, p1, p2, p3, t) -> cbz.valT(t)(p0, p1, p2, p3)
   val2: (c, t) ->
     f = cbz.valT(t)
+    [f(c.x0, c.x1, c.x2, c.x3), f(c.y0, c.y1, c.y2, c.y3)]
+
+  # evaluate tangent
+  valDT: (t) ->
+    s = 1 - t
+    ss = s*s
+    tt = t*t
+    (p0, p1, p2, p3) -> 3*(ss*(p1-p0) + 2*s*t*(p2-p1) + tt*(p3-p2))
+  valD: (p0, p1, p2, p3, t) -> cbz.valDT(t)(p0, p1, p2, p3)
+  valD2: (c, t) ->
+    f = cbz.valDT(t)
     [f(c.x0, c.x1, c.x2, c.x3), f(c.y0, c.y1, c.y2, c.y3)]
 
   # split the curve at t
@@ -69,7 +80,12 @@ module.exports.cbz = cbz =
       3*(p0 - 2*p1 + p2)
       -p0 + 3*p1 - 3*p2 + p3
     ]
-
+  # derivative polynomial coefficients, order 0 to 2
+  polyD: (p0, p1, p2, p3) -> [
+    3*(-p0+p1)
+    6*(p0-2*p1+p2)
+    3*(-p0+3*p1-3*p2+p3)
+  ]
   # find roots of derivative
   dRoots: (p0, p1, p2, p3) ->
     findRealRoots [
@@ -78,7 +94,7 @@ module.exports.cbz = cbz =
       3*(-p0+3*p1-3*p2+p3)
     ]
 
-  # bounding interval
+  # bounding interval/box
   bound: (p0, p1, p2, p3) ->
     ps = [p0, p3]
     [t1, t2] = @dRoots p0, p1, p2, p3

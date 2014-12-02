@@ -1,4 +1,4 @@
-{sin, cos, tan, abs, sign, sqrt, atan2, min, max, PI} = M = Math
+{sin, cos, tan, abs, sign, sqrt, atan2, hypot, min, max, PI} = M = Math
 N = require 'numeric'
 assert = require 'assert'
 util = require 'util'
@@ -9,6 +9,21 @@ SE2 = require './se2'
 {aabb, cbz, intersection} = require './geom'
 
 print = (x) -> console.log util.inspect x, color: true, depth: null
+
+# some math shorthands (yadda, I know they belong to a library)
+cross = (a, b) -> a[0]*b[1] - a[1]*b[0]
+dot = (a, b) -> a[0]*b[0] + a[1]*b[1]
+rot90 = ([x, y]) -> [-y, x]
+norm = ([x, y]) -> hypot(x, y)
+normalize = ([x, y]) ->
+  k = hypot(x, y)
+  [x/k, y/k]
+avgNormal = (a, b) ->
+  k = dot(a, b)
+  if k >= 0
+    N.div(N.add(a, b), 2)
+  else
+    N.div(N.sub(a, b), 2)
 
 module.exports = class Boundary
   constructor: (@pathStr, scale = 1) ->
@@ -104,11 +119,18 @@ module.exports = class Boundary
     @abs = new Array l
 
     # dir: whether the path circles origin CCW (1) or CW (-1)
-    # find this by taking cross product of starting point and starting tangent
+    # find this by taking cross product of starting point and starting tangent...
+    # WARNING: THIS IS WRONG.
+    ###
     @dir = do ->
-      [x0, y0] = v0 = rel[0].p0
-      [xt, yt] = vt = N.sub(rel[0].p1, v0)
-      Math.sign(x0*yt-y0*xt)
+      v0 = rel[0].p0
+      switch rel[0].type
+        when 'L' then vt = N.sub(rel[0].p3, v0)
+        when 'C' then vt = N.sub(rel[0].p1, v0)
+      Math.sign(cross(v0, vt))
+    ###
+    # temporary workaround: assume CCW.
+    @dir = 1
 
     @ # done
 
@@ -160,18 +182,153 @@ module.exports = class Boundary
 
     @aabb = {xMin: xMinP, xMax: xMaxP, yMin: yMinP, yMax: yMaxP}
 
-  # returns all intersections between two boundary curves (in world frame)
-  # each intersection is identified by segment index and location
-  @intersect = (bl, br) ->
-    ret = []
-    if !aabb.intersect(bl.aabb, br.aabb) then return ret
-    for sl, sli in bl.abs
-      for sr, sri in br.abs
+  # find all *contacts* between two boundary curves (in world frame)
+  # WARNING: huge function, lots of corner case, not guaranteed to work at all times
+  # Dictionary for reading hugely-abbreviated variable names:
+  #   l: LHS boundary
+  #   r: RHS boundary
+  #   u: first in an intersection pair
+  #   v: second in an intersection pair
+  #   s: segment
+  #   p: point
+  #   m: midpoint
+  #   n: normal
+  #   i: index of segment in boundary
+  @getContacts = (bl, br, areaMerge) ->
+    nl = bl.abs.length
+    nr = br.abs.length
+
+    # first find all intersections
+    if !aabb.intersect(bl.aabb, br.aabb) then return []
+    xList = []
+    for sl, il in bl.abs
+      for sr, ir in br.abs
         if !aabb.intersect(sl.aabb, sr.aabb) then continue
         xs = intersection[sl.type + sr.type](sl, sr)
         for {x, y, tl, tr} in xs
-          ret.push {x, y, sli, tl, sri, tr}
-    ret
+          xList.push {p: [x, y], l: {i: il, t: tl}, r: {i: ir, t: tr}, merged: false, normal: null}
+
+    if xList.length == 0 then return []
+
+    # signed polygon area helpers
+    area3 = (a, b, c) ->
+      cross(N.sub(b, a), N.sub(c, a))/2
+    area4 = (a, b, c, d) ->
+      ab = N.sub(b, a)
+      ac = N.sub(c, a)
+      ad = N.sub(d, a)
+      (cross(ab, ac) + cross(ac, ad))/2
+
+    # sort by position on L
+    xList.sort (u, v) ->
+      if (di = u.l.i - v.l.i) != 0 then return di
+      u.l.t - v.l.t
+
+    # iterate over all adjacent pairs of intersections
+    iter = (cb) ->
+      z = xList.length - 1
+      for i in [0...z] by 1
+        cb xList[i], xList[i+1]
+      cb xList[z], xList[0]
+
+    iter (u, v) ->
+      if u.merged then return
+
+      # some shorthand
+      uli = u.l.i ; vli = v.l.i
+      uri = u.r.i ; vri = v.r.i
+      up = u.p  ; vp = v.p
+      uvm = N.div(N.add(up, vp), 2) # midpoint of u & v
+      uvd = N.sub(vp, up) # vector u->v
+      uvn = normalize rot90 uvd # normal of u->v
+      uls = bl.abs[uli] # bl segment where u is on
+      urs = br.abs[uri] # br segment where u is on
+      p0 = (seg) -> [seg.x0, seg.y0]
+      p3 = (seg) -> [seg.x3, seg.y3]
+
+      # estimate "midpoints" between u & v on bl/br
+      ml = null
+      mln = null # normal
+      mr = null
+      mrn = null # normal
+
+      if u == v
+        # We're here because (xList.length == 1), so simply skip to the "no-merge" section below
+        null
+      else if norm(uvd) <= 1e-12
+        # Now u, v are the same damn point!
+        # This happens -- simply remove v
+        v.merged = true
+      else
+        switch vli # if (u, v) are...
+          when uli # on the same segment of bl
+            switch uls.type
+              when 'L'
+                ml = uvm
+                mln = uvn
+              when 'C'
+                mlt = (u.l.t + v.l.t)/2 # midpoint => average bezier parameter
+                ml = cbz.val2(uls, mlt)
+                mln = normalize rot90 cbz.valD2(uls, mlt)
+          when (uli + 1) % nl # on adjacent segments of bl (u before v)
+            ml = p3(uls) # == p3(bl.abs[uli]) == p0(bl.abs[vli])
+        switch vri # if (u, v) are...
+          when uri # on the same segment of br
+            switch urs.type
+              when 'L'
+                mr = uvm
+                mrn = uvn
+              when 'C'
+                mrt = (u.r.t + v.r.t)/2 # midpoint => average bezier parameter
+                mr = cbz.val2(urs, mrt)
+                mrn = normalize rot90 cbz.valD2(urs, mrt)
+          when (uri - 1) %% nr # on adjacent segments of br (v before u)
+            mr = p0(urs) # == p0(br.abs[uri]) == p3(br.abs[vri])
+          when (uri + 1) % nr # on adjacent segments of br (u before v)
+            mr = p3(urs) # == p3(br.abs[uri]) == p0(br.abs[vri])
+            # debugger   # (this is twilight zone -- PLEASE avoid this case)
+
+      # check if we can merge
+      if ml? && mr? && -1e-12 <= area4(up, ml, vp, mr)*bl.dir <= areaMerge
+        # merged: keep u (but use centroid of the contact polygon as merged contact), reject v
+        u.p = N.div(N.add(up, ml, vp, mr), 4)
+        v.merged = true
+        # use different heruistics for guesstimating merged contact normal
+        if mln?
+          if mrn?
+            # same-same => average normals at two "midpoints"
+            u.normal = normalize avgNormal(mln, mrn)
+          else
+            # same-adj => use "same"-side normal
+            u.normal = mln
+        else
+          if mrn?
+            # adj-same => use "same"-side normal
+            u.normal = mrn
+          else
+            # adj-adj => (a twilight zone) -- approx. w/ perpendicular bisector of uv
+            u.normal = uvn
+      else
+        # "singled" intersection -- a twilight zone if it doesn't end up merged, because
+        # we probably have deep/wide penetration by now. Anyway, take the average normal
+        # of uls & urs at u and silently let it pass (sigh)
+        switch uls.type
+          when 'L'
+            uln = normalize rot90 N.sub(p3(uls), p0(uls))
+          when 'C'
+            uln = normalize rot90 cbz.valD2(uls, u.l.t)
+        switch urs.type
+          when 'L'
+            urn = normalize rot90 N.sub(p3(urs), p0(urs))
+          when 'C'
+            urn = normalize rot90 cbz.valD2(urs, u.r.t)
+        u.normal = normalize avgNormal(uln, urn)
+
+    # actually merge/reject
+    (x for x in xList when !x.merged)
+
+
+
 
 
 test = ->

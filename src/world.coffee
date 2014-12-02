@@ -17,6 +17,8 @@ defaultOptions =
     min: 1e-6
     max: 1e-2
   spaceScale: 1 # (1m) in simulated world = (spaceScale) px on display
+  collision:
+    tol: 1e-2
 
 module.exports = class World
   constructor: (options = {}) ->
@@ -104,9 +106,9 @@ module.exports = class World
       bi = collBodies[i]
       for j in [i+1...l] by 1
         bj = collBodies[j]
-        xs = Boundary.intersect(bi.boundary, bj.boundary)
-        if xs.length > 0
-          collList.push {i, j, xs}
+        contacts = Boundary.getContacts(bi.boundary, bj.boundary, @options.collision.tol)
+        if contacts.length > 0
+          collList.push {i, j, contacts}
     observer.collision? collList
 
 
