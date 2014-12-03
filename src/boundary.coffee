@@ -11,6 +11,7 @@ SE2 = require './se2'
 print = (x) -> console.log util.inspect x, color: true, depth: null
 
 # some math shorthands (yadda, I know they belong to a library)
+neg = ([x, y]) -> [-x, -y]
 cross = (a, b) -> a[0]*b[1] - a[1]*b[0]
 dot = (a, b) -> a[0]*b[0] + a[1]*b[1]
 rot90 = ([x, y]) -> [-y, x]
@@ -18,12 +19,14 @@ norm = ([x, y]) -> hypot(x, y)
 normalize = ([x, y]) ->
   k = hypot(x, y)
   [x/k, y/k]
-avgNormal = (a, b) ->
-  k = dot(a, b)
+
+# take the "average" of left-right contact normals
+avgNormal = (nl, nr) ->
+  k = dot(nl, nr)
   if k >= 0
-    N.div(N.add(a, b), 2)
+    normalize N.add(nl, nr)
   else
-    N.div(N.sub(a, b), 2)
+    normalize N.sub(nl, nr)
 
 module.exports = class Boundary
   constructor: (@pathStr, scale = 1) ->
@@ -204,9 +207,14 @@ module.exports = class Boundary
     for sl, il in bl.abs
       for sr, ir in br.abs
         if !aabb.intersect(sl.aabb, sr.aabb) then continue
-        xs = intersection[sl.type + sr.type](sl, sr)
-        for {x, y, tl, tr} in xs
-          xList.push {p: [x, y], l: {i: il, t: tl}, r: {i: ir, t: tr}, merged: false, normal: null}
+        for {x, y, tl, tr} in intersection[sl.type + sr.type](sl, sr)
+          xList.push
+            merged: false
+            p: [x, y]
+            l: {i: il, t: tl}
+            r: {i: ir, t: tr}
+            lNormal: null # normal pointing into interior of bl (exterior of br)
+            tag: {} # field for collision resolution algo to store extra information
 
     if xList.length == 0 then return []
 
@@ -248,9 +256,9 @@ module.exports = class Boundary
 
       # estimate "midpoints" between u & v on bl/br
       ml = null
-      mln = null # normal
+      mln = null # normal (pointing into interior of bl)
       mr = null
-      mrn = null # normal
+      mrn = null # normal (pointing into interior of br)
 
       if u == v
         # We're here because (xList.length == 1), so simply skip to the "no-merge" section below
@@ -265,26 +273,33 @@ module.exports = class Boundary
             switch uls.type
               when 'L'
                 ml = uvm
-                mln = uvn
+                mln = uvn # correct direction, as u is before v
               when 'C'
                 mlt = (u.l.t + v.l.t)/2 # midpoint => average bezier parameter
                 ml = cbz.val2(uls, mlt)
                 mln = normalize rot90 cbz.valD2(uls, mlt)
           when (uli + 1) % nl # on adjacent segments of bl (u before v)
             ml = p3(uls) # == p3(bl.abs[uli]) == p0(bl.abs[vli])
+
+        # (almost-)symmetric code for br
+
         switch vri # if (u, v) are...
           when uri # on the same segment of br
             switch urs.type
               when 'L'
                 mr = uvm
-                mrn = uvn
+                # ATTENTION: (u, v) sorted by location on bl, not br.
+                # Need to find out ordering of (u, v) on br in order to make
+                # uvn point to interior of br
+                mrn = if u.r.t < v.r.t then uvn else neg uvn
               when 'C'
                 mrt = (u.r.t + v.r.t)/2 # midpoint => average bezier parameter
                 mr = cbz.val2(urs, mrt)
                 mrn = normalize rot90 cbz.valD2(urs, mrt)
+          # again, here we need to detect correct "ordering"
           when (uri - 1) %% nr # on adjacent segments of br (v before u)
             mr = p0(urs) # == p0(br.abs[uri]) == p3(br.abs[vri])
-          when (uri + 1) % nr # on adjacent segments of br (u before v)
+          when (uri + 1) %  nr # on adjacent segments of br (u before v)
             mr = p3(urs) # == p3(br.abs[uri]) == p0(br.abs[vri])
             # debugger   # (this is twilight zone -- PLEASE avoid this case)
 
@@ -297,17 +312,17 @@ module.exports = class Boundary
         if mln?
           if mrn?
             # same-same => average normals at two "midpoints"
-            u.normal = normalize avgNormal(mln, mrn)
+            u.lNormal = avgNormal(mln, mrn)
           else
             # same-adj => use "same"-side normal
-            u.normal = mln
+            u.lNormal = mln
         else
           if mrn?
             # adj-same => use "same"-side normal
-            u.normal = mrn
+            u.lNormal = neg mrn
           else
             # adj-adj => (a twilight zone) -- approx. w/ perpendicular bisector of uv
-            u.normal = uvn
+            u.lNormal = uvn
       else
         # "singled" intersection -- a twilight zone if it doesn't end up merged, because
         # we probably have deep/wide penetration by now. Anyway, take the average normal
@@ -322,7 +337,7 @@ module.exports = class Boundary
             urn = normalize rot90 N.sub(p3(urs), p0(urs))
           when 'C'
             urn = normalize rot90 cbz.valD2(urs, u.r.t)
-        u.normal = normalize avgNormal(uln, urn)
+        u.lNormal = avgNormal(uln, urn)
 
     # actually merge/reject
     (x for x in xList when !x.merged)

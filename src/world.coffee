@@ -19,6 +19,7 @@ defaultOptions =
   spaceScale: 1 # (1m) in simulated world = (spaceScale) px on display
   collision:
     tol: 1e-2
+    iter: 4
 
 module.exports = class World
   constructor: (options = {}) ->
@@ -92,9 +93,12 @@ module.exports = class World
   step: (dt, observer = {}) ->
     dt = @solver(@tNow.t, @_clampTime(dt))
 
+
+    ############
     # collision detection:
     #   only handle bodies with boundaries attached
     #   check each pair (unordered) once
+
     collBodies = []
     collList = []
     @bodies.forEach (body) ->
@@ -106,13 +110,36 @@ module.exports = class World
       bi = collBodies[i]
       for j in [i+1...l] by 1
         bj = collBodies[j]
+        if bi.drive && bj.drive then continue
         contacts = Boundary.getContacts(bi.boundary, bj.boundary, @options.collision.tol)
         if contacts.length > 0
-          collList.push {i, j, contacts}
+          collList.push {a: bi, b: bj, contacts}
     observer.collision? collList
 
 
-    #TODO: post-solver correction, discontinuity fix, etc.
+    ############
+    # collision resolution
+
+    # preprocess each contact
+    for {a, b, contacts} in collList
+      for {p, lNormal, tag} in contacts
+        tag.imp = 0
+        tag.n = n = Force.fromForcePoint(lNormal, p)
+        tag.denom = 1/SE2.plus(n.toAcc(a), n.toAcc(b)).dot(n)
+
+    for iter in [0...@options.collision.iter] by 1
+      for {a, b, contacts} in collList
+        for {p, lNormal, tag} in contacts
+          impOld = tag.imp
+          tag.imp += tag.n.dot(SE2.minus(b.frame.vel, a.frame.vel))*tag.denom
+          if tag.imp < 1e-12 then tag.imp = 0
+          impD = tag.imp - impOld
+          impV = new Force tag.n.scale(impD)
+          a.frame.vel.plusEq(impV.toAcc(a))
+          b.frame.vel.minusEq(impV.toAcc(b))
+
+
+    #TODO: discontinuity fix, etc.
 
     # save current state
     @tNow.t += dt
@@ -132,15 +159,15 @@ module.exports = class World
       acc = body.frame.acc = SE2(0, 0, 0)
       for field in @fields
         force = field(t, body, id)
-        acc.addEq force.toAcc body
+        acc.plusEq force.toAcc body
     @forceFuncs.forEach (ffEntry) ->
       {bodyP, bodyN} = ffEntry
       forceP = ffEntry.f(t, dt) # need to preserve context
       if bodyP && bodyP != @ground
         # forceP: moment component already at bodyP
-        bodyP.frame.acc.addEq forceP.toAcc(bodyP)
+        bodyP.frame.acc.plusEq forceP.toAcc(bodyP)
       if bodyN && bodyN != @ground
         # forceN: -forceP with moment component offset to bodyN
         vPN = bodyN.frame.pos.minus bodyP.frame.pos
         forceN = new Force(forceP.neg()).offsetOrigin(vPN)
-        bodyN.frame.acc.addEq forceN.toAcc(bodyN)
+        bodyN.frame.acc.plusEq forceN.toAcc(bodyN)

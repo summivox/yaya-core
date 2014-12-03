@@ -21,11 +21,11 @@ module.exports = class Force extends SE2
   # inbound conversions
 
   # (force, moment) [alias of native]
-  @fromForceMoment = ({x: fx, y: fy}, mz) ->
+  @fromForceMoment = ([fx, fy], mz) ->
     new Force fx, fy, mz
 
   # (force, point on line of force)
-  @fromForcePoint = ({x: fx, y: fy}, {x: px, y: py}) ->
+  @fromForcePoint = ([fx, fy], [px, py]) ->
     new Force fx, fy, px*fy-py*fx
 
   ############

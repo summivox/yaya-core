@@ -27,16 +27,16 @@ module.exports =
     f1 = new Force 1, 2, 3
     test.deepEqual f1.toAcc({m: 1, jz: 3}), {x: 1, y: 2, th: 1}
 
-    f2 = Force.fromForceMoment {x: 1, y: 2}, 3
+    f2 = Force.fromForceMoment [1, 2], 3
     test.deepEqual f2, f1
 
-    f3 = Force.fromForcePoint {x: 1, y: 2}, {x: 1, y: -1}
+    f3 = Force.fromForcePoint [1, 2], [1, -1]
     test.deepEqual f3, f1
 
     test.done()
 
   offsetOrigin: (test) ->
-    f1 = Force.fromForcePoint {x: 0, y: 2}, {x: 3, y: 0}
+    f1 = Force.fromForcePoint [0, 2], [3, 0]
     frame1 = SE2(1, 2, 45*deg)
     f2 = f1.offsetOrigin frame1
 

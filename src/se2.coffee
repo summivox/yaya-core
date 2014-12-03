@@ -69,6 +69,9 @@ module.exports = class SE2
     [x + @x
      y + @y]
 
+  # plain dot product (treat as R^3)
+  dot: ({x, y, th}) -> x*@x + y*@y + th*@th
+
   # H^{-1}*(x, y, 0)^T
   ldivVec: (v) -> @neg().mulVec(v) # same result as @inv but faster
 
@@ -91,7 +94,7 @@ module.exports = class SE2
   ############
   # addition/assign
 
-  addEq: ({x, y, th}) ->
+  plusEq: ({x, y, th}) ->
     @x += x; @y += y; @th += th; @
   minusEq: ({x, y, th}) ->
     @x -= x; @y -= y; @th -= th; @
@@ -113,4 +116,5 @@ module.exports = class SE2
   @mulVec = (s, v) -> s.mulVec v
   @mulPoint = (s, p) -> s.mulPoint p
   @mulSE2 = (l, rs...) -> l = l.mulSE2 r for r in rs ; l
+  @dot = (l, r) -> l.dot r
   @equal = (l, r, eps) -> l.equal r, eps
