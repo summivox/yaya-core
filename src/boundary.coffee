@@ -11,11 +11,15 @@ SE2 = require './se2'
 print = (x) -> console.log util.inspect x, color: true, depth: null
 
 # some math shorthands (yadda, I know they belong to a library)
+plus = ([x1, y1], [x2, y2]) -> [x1+x2, y1+y2]
+minus = ([x1, y1], [x2, y2]) -> [x1-x2, y1-y2]
+scale = ([x1, y1], k) -> [x1*k, y1*k]
 neg = ([x, y]) -> [-x, -y]
 cross = (a, b) -> a[0]*b[1] - a[1]*b[0]
 dot = (a, b) -> a[0]*b[0] + a[1]*b[1]
 rot90 = ([x, y]) -> [-y, x]
 norm = ([x, y]) -> hypot(x, y)
+norm2 = ([x, y]) -> x*x + y*y
 normalize = ([x, y]) ->
   k = hypot(x, y)
   [x/k, y/k]
@@ -26,7 +30,7 @@ avgNormal = (nl, nr) ->
   if k >= 0
     normalize N.add(nl, nr)
   else
-    normalize N.sub(nl, nr)
+    normalize minus(nl, nr)
 
 module.exports = class Boundary
   constructor: (@pathStr, scale = 1) ->
@@ -128,8 +132,8 @@ module.exports = class Boundary
     @dir = do ->
       v0 = rel[0].p0
       switch rel[0].type
-        when 'L' then vt = N.sub(rel[0].p3, v0)
-        when 'C' then vt = N.sub(rel[0].p1, v0)
+        when 'L' then vt = minus(rel[0].p3, v0)
+        when 'C' then vt = minus(rel[0].p1, v0)
       Math.sign(cross(v0, vt))
     ###
     # temporary workaround: assume CCW.
@@ -214,17 +218,18 @@ module.exports = class Boundary
             l: {i: il, t: tl}
             r: {i: ir, t: tr}
             lNormal: null # normal pointing into interior of bl (exterior of br)
+            depth: 0 # penetration depth (rough estimate)
             tag: {} # field for collision resolution algo to store extra information
 
     if xList.length == 0 then return []
 
     # signed polygon area helpers
     area3 = (a, b, c) ->
-      cross(N.sub(b, a), N.sub(c, a))/2
+      cross(minus(b, a), minus(c, a))/2
     area4 = (a, b, c, d) ->
-      ab = N.sub(b, a)
-      ac = N.sub(c, a)
-      ad = N.sub(d, a)
+      ab = minus(b, a)
+      ac = minus(c, a)
+      ad = minus(d, a)
       (cross(ab, ac) + cross(ac, ad))/2
 
     # sort by position on L
@@ -246,8 +251,8 @@ module.exports = class Boundary
       uli = u.l.i ; vli = v.l.i
       uri = u.r.i ; vri = v.r.i
       up = u.p  ; vp = v.p
-      uvm = N.div(N.add(up, vp), 2) # midpoint of u & v
-      uvd = N.sub(vp, up) # vector u->v
+      uvm = scale(plus(up, vp), 1/2) # midpoint of u & v
+      uvd = minus(vp, up) # vector u->v
       uvn = normalize rot90 uvd # normal of u->v
       uls = bl.abs[uli] # bl segment where u is on
       urs = br.abs[uri] # br segment where u is on
@@ -301,14 +306,21 @@ module.exports = class Boundary
             mr = p0(urs) # == p0(br.abs[uri]) == p3(br.abs[vri])
           when (uri + 1) %  nr # on adjacent segments of br (u before v)
             mr = p3(urs) # == p3(br.abs[uri]) == p0(br.abs[vri])
-            # debugger   # (this is twilight zone -- PLEASE avoid this case)
 
-      # check if we can merge
-      if ml? && mr? && -1e-12 <= area4(up, ml, vp, mr)*bl.dir <= areaMerge
-        # merged: keep u (but use centroid of the contact polygon as merged contact), reject v
+      if ml? && mr?
+        # both midpoint estimates are valid -- this is nice
+        # use directed area to help measure penetration depth and tell if we can merge
+        a = area4(up, ml, vp, mr)*bl.dir
         u.p = N.div(N.add(up, ml, vp, mr), 4)
-        v.merged = true
-        # use different heruistics for guesstimating merged contact normal
+        u.depth = abs(a*2/norm(uvd))
+        if -1e-12 <= a <= areaMerge
+          # merged: keep u (but use centroid of the contact polygon as merged contact), reject v
+          u.p = N.div(N.add(up, ml, vp, mr), 4)
+          v.merged = true
+        # use different heruistics for estimating contact normal
+        # NOTE: even when we don't merge becuase penetration area is too large,
+        # since we have good enough geometry at u and v, estimation is probably
+        # okay and we don't need to resort to below "singled" case
         if mln?
           if mrn?
             # same-same => average normals at two "midpoints"
@@ -323,45 +335,44 @@ module.exports = class Boundary
           else
             # adj-adj => (a twilight zone) -- approx. w/ perpendicular bisector of uv
             u.lNormal = uvn
+
       else
-        # "singled" intersection -- a twilight zone if it doesn't end up merged, because
-        # we probably have deep/wide penetration by now. Anyway, take the average normal
-        # of uls & urs at u and silently let it pass (sigh)
-        switch uls.type
-          when 'L'
-            uln = normalize rot90 N.sub(p3(uls), p0(uls))
-          when 'C'
-            uln = normalize rot90 cbz.valD2(uls, u.l.t)
-        switch urs.type
-          when 'L'
-            urn = normalize rot90 N.sub(p3(urs), p0(urs))
-          when 'C'
-            urn = normalize rot90 cbz.valD2(urs, u.r.t)
-        u.lNormal = avgNormal(uln, urn)
+        # "singled" intersection at u : twilight zone if it doesn't end up merged, because
+        # we probably have very deep/wide penetration by now, which makes depth estimation
+        # quite tricky...
 
-    # actually merge/reject
+        # we'll first try to "salvage" a clean normal
+        if mln?
+          u.lNormal = mln
+          # project two secants on "dirty" side onto clean normal
+          d0 = dot(minus(p0(urs), up), mln)
+          d3 = dot(minus(p3(urs), up), mln)
+          u.depth = if d0 > 0 then d0 else abs d3
+        else if mrn?
+          u.lNormal = neg mrn
+          d0 = dot(minus(p0(uls), up), mrn)
+          d3 = dot(minus(p3(uls), up), mrn)
+          u.depth = if d0 > 0 then d0 else abs d3
+        else
+          # THIS IS SPARTAAAAAA!!!!!
+          # giving up all hope already -- just try to come up with a number!
+          switch uls.type
+            when 'L'
+              uln = normalize rot90 minus(p3(uls), p0(uls))
+            when 'C'
+              uln = normalize rot90 cbz.valD2(uls, u.l.t)
+          switch urs.type
+            when 'L'
+              urn = normalize rot90 minus(p3(urs), p0(urs))
+            when 'C'
+              urn = normalize rot90 cbz.valD2(urs, u.r.t)
+          u.lNormal = n = avgNormal(uln, urn)
+          d0l = abs dot(minus(p0(uls), up), n)
+          d0r = abs dot(minus(p0(urs), up), n)
+          d3l = abs dot(minus(p3(uls), up), n)
+          d3r = abs dot(minus(p3(urs), up), n)
+          u.depth = min(d0l, d0r, d3l, d3r)/4 # yeah, I know this is BS. "WHATEVER".
+      return # (iter (u, v) -> ...)
+
+    # exclude "marked as merged" entries in one final pass
     (x for x in xList when !x.merged)
-
-
-
-
-
-test = ->
-  deg = PI/180
-  a = new Boundary """
-        m 300 100
-        h -100 v 100
-        q -100 0 -100 100
-        t 100 100
-        c 50 0 50 100 150 100
-        s 0 -100 150 -100
-        q 100 -100 0 -200
-        z
-  """
-  console.log a.toString()
-  print a
-  a.calcAABB SE2(0, 0, 30*deg)
-  b = a.aabb
-  print [b.xMin, b.xMax, b.yMin, b.yMax]
-  print a
-# do test

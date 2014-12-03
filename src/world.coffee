@@ -19,7 +19,9 @@ defaultOptions =
   spaceScale: 1 # (1m) in simulated world = (spaceScale) px on display
   collision:
     tol: 1e-2
-    iter: 4
+    iters: 4
+    cor: 0.1
+    posFix: 0.618
 
 module.exports = class World
   constructor: (options = {}) ->
@@ -93,6 +95,7 @@ module.exports = class World
   step: (dt, observer = {}) ->
     dt = @solver(@tNow.t, @_clampTime(dt))
 
+    {tol, iters, cor, posFix} = @options.collision
 
     ############
     # collision detection:
@@ -111,7 +114,7 @@ module.exports = class World
       for j in [i+1...l] by 1
         bj = collBodies[j]
         if bi.drive && bj.drive then continue
-        contacts = Boundary.getContacts(bi.boundary, bj.boundary, @options.collision.tol)
+        contacts = Boundary.getContacts(bi.boundary, bj.boundary, tol)
         if contacts.length > 0
           collList.push {a: bi, b: bj, contacts}
     observer.collision? collList
@@ -125,19 +128,20 @@ module.exports = class World
       for {p, lNormal, tag} in contacts
         tag.imp = 0
         tag.n = n = Force.fromForcePoint(lNormal, p)
-        tag.denom = 1/SE2.plus(n.toAcc(a), n.toAcc(b)).dot(n)
+        tag.k = (1+cor)/SE2.plus(n.toAcc(a), n.toAcc(b)).dot(n)
 
-    for iter in [0...@options.collision.iter] by 1
+    for iter in [1..iters] by 1
       for {a, b, contacts} in collList
-        for {p, lNormal, tag} in contacts
+        va = a.frame.vel
+        vb = b.frame.vel
+        for {p, lNormal, depth, tag} in contacts
           impOld = tag.imp
-          tag.imp += tag.n.dot(SE2.minus(b.frame.vel, a.frame.vel))*tag.denom
+          tag.imp += (tag.n.dot(vb.minus(va)) + posFix*depth/dt)*tag.k
           if tag.imp < 1e-12 then tag.imp = 0
           impD = tag.imp - impOld
           impV = new Force tag.n.scale(impD)
-          a.frame.vel.plusEq(impV.toAcc(a))
-          b.frame.vel.minusEq(impV.toAcc(b))
-
+          va.plusEq (impV.toAcc(a))
+          vb.minusEq(impV.toAcc(b))
 
     #TODO: discontinuity fix, etc.
 
