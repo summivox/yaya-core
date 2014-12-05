@@ -93,7 +93,8 @@ module.exports = class World
   # return: actually performed timestep
   #TODO: refactor min/max timestep to here -- better semantics
   step: (dt, observer = {}) ->
-    dt = @solver(@tNow.t, @_clampTime(dt))
+    dt = @_clampTime(dt)
+    dt = @solver(@tNow.t, dt)
 
     {tol, iters, cor, posFix} = @options.collision
 
@@ -130,18 +131,42 @@ module.exports = class World
         tag.n = n = Force.fromForcePoint(lNormal, p)
         tag.k = (1+cor)/SE2.plus(n.toAcc(a), n.toAcc(b)).dot(n)
 
+    imps = []
     for iter in [1..iters] by 1
       for {a, b, contacts} in collList
         va = a.frame.vel
         vb = b.frame.vel
         for {p, lNormal, depth, tag} in contacts
           impOld = tag.imp
-          tag.imp += (tag.n.dot(vb.minus(va)) + posFix*depth/dt)*tag.k
+          tag.imp += (tag.n.dot(vb.minus(va)) + (Math.random()*0.5+0.5)*posFix*depth/dt)*tag.k
           if tag.imp < 1e-12 then tag.imp = 0
+          if tag.imp > 20 then tag.imp = 20 #TODO: THIS IS A HACK!
+          if isNaN tag.imp then tag.imp = 0
+          imps.push tag.imp
           impD = tag.imp - impOld
           impV = new Force tag.n.scale(impD)
-          va.plusEq (impV.toAcc(a))
-          vb.minusEq(impV.toAcc(b))
+          va.plusEq (impV.toAcc(a)) unless a.drive?
+          vb.minusEq(impV.toAcc(b)) unless b.drive?
+
+    #DEBUG: 你妈炸了
+    ######
+    if imps.length
+      avg = N.sum(imps)/imps.length
+      max = M.max(imps...)
+      min = M.min(imps...)
+      console.log "avg: #{avg.toFixed(8)}, max: #{max.toFixed(8)}, min: #{min.toFixed(8)}"
+      if max > 20
+        console.log @tNow.t
+        console.log dt
+        debugger
+    ######
+
+    # wrap angular position
+    @bodies.forEach (body) ->
+      PI = M.PI
+      PPI = 2*M.PI
+      if body.frame.th > +PPI then body.frame.th -= PI
+      if body.frame.th < -PPI then body.frame.th += PI
 
     #TODO: discontinuity fix, etc.
 
@@ -175,3 +200,9 @@ module.exports = class World
         vPN = bodyN.frame.pos.minus bodyP.frame.pos
         forceN = new Force(forceP.neg()).offsetOrigin(vPN)
         bodyN.frame.acc.plusEq forceN.toAcc(bodyN)
+
+  #DEBUG: list all bodies
+  _list: ->
+    @bodies.forEach (body, id) ->
+      {x, y, th} = body.frame.pos
+      console.log "{id: #{id}, pos: [#{x.toFixed(6)}, #{y.toFixed(6)}, #{th.toFixed(6)}]}"

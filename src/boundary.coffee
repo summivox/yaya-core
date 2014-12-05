@@ -310,6 +310,7 @@ module.exports = class Boundary
       if ml? && mr?
         # both midpoint estimates are valid -- this is nice
         # use directed area to help measure penetration depth and tell if we can merge
+        u.tag.msg = "good pre-merge"
         a = area4(up, ml, vp, mr)*bl.dir
         u.p = N.div(N.add(up, ml, vp, mr), 4)
         u.depth = abs(a*2/norm(uvd))
@@ -343,19 +344,22 @@ module.exports = class Boundary
 
         # we'll first try to "salvage" a clean normal
         if mln?
+          u.tag.msg = "bad, scavange mln"
           u.lNormal = mln
           # project two secants on "dirty" side onto clean normal
-          d0 = dot(minus(p0(urs), up), mln)
-          d3 = dot(minus(p3(urs), up), mln)
-          u.depth = if d0 > 0 then d0 else abs d3
+          d0 = abs dot(minus(p0(urs), up), mln)
+          d3 = abs dot(minus(p3(urs), up), mln)
+          u.depth = min(d0, d3)
         else if mrn?
+          u.tag.msg = "bad, scavange mrn"
           u.lNormal = neg mrn
-          d0 = dot(minus(p0(uls), up), mrn)
-          d3 = dot(minus(p3(uls), up), mrn)
-          u.depth = if d0 > 0 then d0 else abs d3
+          d0 = abs dot(minus(p0(uls), up), mrn)
+          d3 = abs dot(minus(p3(uls), up), mrn)
+          u.depth = min(d0, d3)
         else
           # THIS IS SPARTAAAAAA!!!!!
           # giving up all hope already -- just try to come up with a number!
+          u.tag.msg = "sparta"
           switch uls.type
             when 'L'
               uln = normalize rot90 minus(p3(uls), p0(uls))
@@ -371,7 +375,7 @@ module.exports = class Boundary
           d0r = abs dot(minus(p0(urs), up), n)
           d3l = abs dot(minus(p3(uls), up), n)
           d3r = abs dot(minus(p3(urs), up), n)
-          u.depth = min(d0l, d0r, d3l, d3r)/4 # yeah, I know this is BS. "WHATEVER".
+          u.depth = min(d0l, d0r, d3l, d3r) # yeah, I know this is BS. "WHATEVER".
       return # (iter (u, v) -> ...)
 
     # exclude "marked as merged" entries in one final pass
