@@ -165,8 +165,8 @@ module.exports = class World
     @bodies.forEach (body) ->
       PI = M.PI
       PPI = 2*M.PI
-      if body.frame.th > +PPI then body.frame.th -= PI
-      if body.frame.th < -PPI then body.frame.th += PI
+      if body.frame.pos.th > +PPI then body.frame.pos.th -= PI
+      if body.frame.pos.th < -PPI then body.frame.pos.th += PI
 
     #TODO: discontinuity fix, etc.
 
