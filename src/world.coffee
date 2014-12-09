@@ -131,7 +131,7 @@ module.exports = class World
         tag.n = n = Force.fromForcePoint(lNormal, p)
         tag.k = (1+cor)/SE2.plus(n.toAcc(a), n.toAcc(b)).dot(n)
 
-    imps = []
+    #imps = []
     for iter in [1..iters] by 1
       for {a, b, contacts} in collList
         va = a.frame.vel
@@ -142,14 +142,14 @@ module.exports = class World
           if tag.imp < 1e-12 then tag.imp = 0
           if tag.imp > 20 then tag.imp = 20 #TODO: THIS IS A HACK!
           if isNaN tag.imp then tag.imp = 0
-          imps.push tag.imp
+          #imps.push tag.imp
           impD = tag.imp - impOld
           impV = new Force tag.n.scale(impD)
           va.plusEq (impV.toAcc(a)) unless a.drive?
           vb.minusEq(impV.toAcc(b)) unless b.drive?
 
     #DEBUG: 你妈炸了
-    ######
+    ###
     if imps.length
       avg = N.sum(imps)/imps.length
       max = M.max(imps...)
@@ -159,7 +159,7 @@ module.exports = class World
         console.log @tNow.t
         console.log dt
         debugger
-    ######
+    ###
 
     # wrap angular position
     @bodies.forEach (body) ->
