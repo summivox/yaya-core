@@ -197,6 +197,7 @@ module.exports.intersection = intersection =
     # initial: test whole curve pair
     n0 = intersection.depth_cc
     f(L, [0, 1], R, [0, 1], n0)
+    if !ret.length then return ret
 
     #DEBUG: timing
     # console.log nn
